@@ -106,7 +106,12 @@ jobs:
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk; do
             test -f "$apk"
-            "$AAPT" dump badging "$apk" | grep -F "package: name='com.localsend.m3e' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION'"
+            if [[ "$apk" == *app-armeabi-v7a-release.apk ]]; then
+              EXPECTED_ABI_VERSION_CODE=$((EXPECTED_VERSION_CODE * 10 + 2))
+            else
+              EXPECTED_ABI_VERSION_CODE=$((EXPECTED_VERSION_CODE * 10 + 3))
+            fi
+            "$AAPT" dump badging "$apk" | grep -F "package: name='com.localsend.m3e' versionCode='$EXPECTED_ABI_VERSION_CODE' versionName='$EXPECTED_VERSION'"
             "$AAPT" dump badging "$apk" | grep -F "application-label:'LocalSend'"
             if "$AAPT" dump badging "$apk" | grep -Fq 'org.localsend.localsend_app'; then
               echo "Official package identity found in $apk"
