@@ -196,6 +196,7 @@ class SendTab extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Row(
@@ -357,13 +358,16 @@ class _CircularPopupButton<T> extends StatelessWidget {
             onSelected: onSelected,
             tooltip: tooltip,
             itemBuilder: itemBuilder,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.86),
-                shape: BoxShape.circle,
-                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            child: SizedBox.square(
+              dimension: 52,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.86),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
+                child: Center(child: child),
               ),
-              child: Padding(padding: const EdgeInsets.all(13), child: child),
             ),
           ),
         ),
@@ -563,10 +567,7 @@ class _SendModeButton extends StatelessWidget {
           ),
         ),
       ],
-      child: const Padding(
-        padding: EdgeInsets.all(8),
-        child: Icon(Icons.settings),
-      ),
+      child: const Icon(Icons.settings, size: 22),
     );
   }
 }
