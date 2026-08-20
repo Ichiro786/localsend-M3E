@@ -1,6 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:localsend_app/config/m3e_tokens.dart';
 
+class M3eExpressiveSwitch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final String semanticLabel;
+
+  const M3eExpressiveSwitch({
+    required this.value,
+    required this.onChanged,
+    required this.semanticLabel,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onChanged != null;
+    final trackColor = value ? scheme.primary : scheme.surfaceContainerHighest;
+    final thumbColor = value ? scheme.onPrimary : scheme.outline;
+    final iconColor = value ? scheme.primary : scheme.onSurfaceVariant;
+
+    return Semantics(
+      container: true,
+      toggled: value,
+      enabled: enabled,
+      label: semanticLabel,
+      onTap: enabled ? () => onChanged!(!value) : null,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 52, minHeight: 48),
+        child: Center(
+          child: InkWell(
+            onTap: enabled ? () => onChanged!(!value) : null,
+            borderRadius: BorderRadius.circular(99),
+            child: AnimatedContainer(
+              duration: M3eTokens.shortMotion,
+              curve: M3eTokens.expressiveCurve,
+              width: 52,
+              height: 32,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: enabled ? trackColor : trackColor.withValues(alpha: 0.58),
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(
+                  color: value ? scheme.primary.withValues(alpha: 0.25) : scheme.outlineVariant,
+                ),
+              ),
+              child: AnimatedAlign(
+                duration: M3eTokens.shortMotion,
+                curve: M3eTokens.expressiveCurve,
+                alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+                child: AnimatedContainer(
+                  duration: M3eTokens.shortMotion,
+                  curve: M3eTokens.expressiveCurve,
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(color: thumbColor, shape: BoxShape.circle),
+                  child: AnimatedSwitcher(
+                    duration: M3eTokens.shortMotion,
+                    child: Icon(
+                      value ? Icons.check : Icons.close,
+                      key: ValueKey(value),
+                      size: 16,
+                      color: iconColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class M3eIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;

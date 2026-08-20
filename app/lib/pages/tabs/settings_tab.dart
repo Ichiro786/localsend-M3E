@@ -28,6 +28,7 @@ import 'package:localsend_app/widget/dialogs/text_field_tv.dart';
 import 'package:localsend_app/widget/dialogs/text_field_with_actions.dart';
 import 'package:localsend_app/widget/labeled_checkbox.dart';
 import 'package:localsend_app/widget/local_send_logo.dart';
+import 'package:localsend_app/widget/m3e/m3e_components.dart';
 import 'package:localsend_app/widget/responsive_list_view.dart';
 import 'package:localsend_isolates/constants.dart';
 import 'package:localsend_isolates/model/device.dart';
@@ -689,14 +690,11 @@ class _BooleanEntry extends StatelessWidget {
         child: SizedBox(
           height: 56,
           child: Align(
-            alignment: Alignment.centerRight,
-            child: Switch(
+            alignment: Alignment.center,
+            child: M3eExpressiveSwitch(
               value: value,
               onChanged: onChanged,
-              activeTrackColor: theme.colorScheme.primary,
-              activeThumbColor: theme.colorScheme.onPrimary,
-              inactiveThumbColor: theme.colorScheme.outline,
-              inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
+              semanticLabel: '$label, ${value ? t.general.on : t.general.off}',
             ),
           ),
         ),
