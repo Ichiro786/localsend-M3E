@@ -1,3 +1,29 @@
+## 1.0.0 (LocalSend M3E)
+
+Material 3 Expressive redesign and release hardening for the LocalSend M3E fork.
+
+### Highlights
+
+- Material 3 Expressive screens with Material You dynamic colors and an OLED-friendly dark system.
+- Animated expressive background, floating navigation, redesigned Receive, Send, Settings, and Receive via Link experiences.
+- Smoother navigation and interactions with vsync-driven animation and cleaned-up animation lifecycles.
+
+### Fixes
+
+- Fixed Receive via Link overflow and Settings control alignment.
+- Normalized expressive switch behavior and Send-screen spacing.
+- Fixed navigation and animation lifecycle issues verified during the M3E redesign.
+
+### Compatibility
+
+- Android application ID: `com.localsend.m3e`.
+- Visible app name: `LocalSend`.
+- Public Android artifacts target ARM64 (`arm64-v8a`) and ARMv7 (`armeabi-v7a`).
+
+### Attribution
+
+This is the LocalSend M3E fork/revamp. Original LocalSend licensing, attribution, and third-party dependency notices remain applicable.
+
 ## 1.18.2 (unreleased)
 
 - fix: ignore proxies, fixes "TLS info not found" when a system proxy (e.g. Shadowrocket) is enabled
