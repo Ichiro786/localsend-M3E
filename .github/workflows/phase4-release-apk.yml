@@ -64,13 +64,9 @@ jobs:
         working-directory: app
         run: flutter pub get
 
-      - name: Build ARM64 split release APK
+      - name: Build ARMv7 and ARM64 split release APKs
         working-directory: app
-        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --no-pub
-
-      - name: Build universal release APK
-        working-directory: app
-        run: flutter build apk --release --no-pub
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --no-pub
 
       - name: Verify release identity and report sizes
         working-directory: app
@@ -83,8 +79,8 @@ jobs:
           AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
           test -x "$AAPT"
           for apk in \
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-            build/app/outputs/flutter-apk/app-release.apk; do
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk; do
             test -f "$apk"
             "$AAPT" dump badging "$apk" | grep -F "package: name='com.localsend.m3e'"
             "$AAPT" dump badging "$apk" | grep -F "application-label:'LocalSend'"
@@ -106,8 +102,8 @@ jobs:
           name: localsend-m3e-release-apks
           if-no-files-found: error
           path: |
+            app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Remove temporary signing files
         if: always()
