@@ -11,8 +11,8 @@ import 'package:localsend_app/provider/network/server/server_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/widget/animations/initial_fade_transition.dart';
 import 'package:localsend_app/widget/column_list_view.dart';
-import 'package:localsend_app/widget/custom_icon_button.dart';
 import 'package:localsend_app/widget/local_send_logo.dart';
+import 'package:localsend_app/widget/m3e/m3e_components.dart';
 import 'package:localsend_app/widget/responsive_list_view.dart';
 import 'package:localsend_app/widget/rotating_widget.dart';
 import 'package:localsend_isolates/util/sleep.dart';
@@ -28,11 +28,11 @@ class ReceiveTab extends StatefulWidget {
 }
 
 class _ReceiveTabState extends State<ReceiveTab> {
-  /// Whether the advanced network info is shown
+  /// Whether the advanced network info is shown.
   bool _showAdvanced = false;
 
-  /// Whether the history button is shown
-  /// This extra boolean is needed to delay the animation
+  /// Whether the history button is shown.
+  /// This extra boolean is needed to delay the animation.
   bool _showHistoryButton = true;
 
   Future<void> _toggleAdvanced() async {
@@ -55,6 +55,7 @@ class _ReceiveTabState extends State<ReceiveTab> {
     final alias = context.watch(settingsProvider.select((s) => s.alias));
     final serverState = context.watch(serverProvider);
     final localIps = context.watch(localIpProvider.select((s) => s.localIps));
+    final scheme = Theme.of(context).colorScheme;
 
     return Stack(
       children: [
@@ -62,64 +63,82 @@ class _ReceiveTabState extends State<ReceiveTab> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: ResponsiveListView.defaultMaxWidth),
             child: Padding(
-              padding: const EdgeInsets.all(30),
+              padding: const EdgeInsets.fromLTRB(22, 30, 22, 8),
               child: ColumnListView(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        InitialFadeTransition(
-                          duration: const Duration(milliseconds: 300),
-                          delay: const Duration(milliseconds: 200),
-                          child: Consumer(
-                            builder: (context, ref) {
-                              final animations = ref.watch(animationProvider);
-                              final activeTab = ref.watch(homePageControllerProvider.select((state) => state.currentTab));
-                              return RotatingWidget(
-                                duration: const Duration(seconds: 15),
-                                spinning: serverState != null && animations && activeTab == HomeTab.receive,
-                                child: const LocalSendLogo(withText: false),
-                              );
-                            },
-                          ),
-                        ),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(serverState?.alias ?? alias, style: const TextStyle(fontSize: 48)),
-                        ),
-                        Visibility(
-                          visible: serverState == null,
-                          maintainSize: true,
-                          maintainAnimation: true,
-                          maintainState: true,
-                          child: InitialFadeTransition(
-                            duration: const Duration(milliseconds: 300),
-                            delay: const Duration(milliseconds: 500),
-                            child: Text(
-                              t.general.offline,
-                              style: const TextStyle(fontSize: 24),
+                    child: SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 540),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 34),
+                            InitialFadeTransition(
+                              duration: const Duration(milliseconds: 300),
+                              delay: const Duration(milliseconds: 200),
+                              child: Consumer(
+                                builder: (context, ref) {
+                                  final animations = ref.watch(animationProvider);
+                                  final activeTab = ref.watch(homePageControllerProvider.select((state) => state.currentTab));
+                                  return RotatingWidget(
+                                    duration: const Duration(seconds: 15),
+                                    spinning: serverState != null && animations && activeTab == HomeTab.receive,
+                                    child: const LocalSendLogo(withText: false),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                serverState?.alias ?? alias,
+                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  color: scheme.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              t.receiveTab.subtitle,
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
                               textAlign: TextAlign.center,
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                            Visibility(
+                              visible: serverState == null,
+                              maintainSize: true,
+                              maintainAnimation: true,
+                              maintainState: true,
+                              child: InitialFadeTransition(
+                                duration: const Duration(milliseconds: 300),
+                                delay: const Duration(milliseconds: 500),
+                                child: Text(
+                                  t.general.offline,
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: scheme.error),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 42),
+                            M3eTonalActionButton(
+                              icon: Icons.language,
+                              label: t.receiveTab.link,
+                              onPressed: () async {
+                                await context.global.dispatchAsync(NavigateAction.push(const WebSharePage()));
+                              },
+                            ),
+                            const SizedBox(height: 28),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Center(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          await context.global.dispatchAsync(NavigateAction.push(const WebSharePage()));
-                        },
-                        icon: Icon(Icons.language),
-                        label: Text(t.receiveTab.link),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 15),
                 ],
               ),
             ),
@@ -156,7 +175,7 @@ class _CornerButtons extends StatelessWidget {
     return Align(
       alignment: Alignment.topRight,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
@@ -164,17 +183,21 @@ class _CornerButtons extends StatelessWidget {
               AnimatedOpacity(
                 opacity: showHistoryButton ? 1 : 0,
                 duration: const Duration(milliseconds: 200),
-                child: CustomIconButton(
+                child: M3eIconButton(
+                  tooltip: t.receiveHistoryPage.title,
                   onPressed: () async {
                     await context.push(() => const ReceiveHistoryPage());
                   },
-                  child: const Icon(Icons.history),
+                  icon: Icons.history,
                 ),
               ),
-            CustomIconButton(
+            const SizedBox(width: 10),
+            M3eIconButton(
               key: const ValueKey('info-btn'),
+              tooltip: t.receiveHistoryPage.entryActions.info,
               onPressed: toggleAdvanced,
-              child: const Icon(Icons.info),
+              icon: Icons.info_outline,
+              selected: showAdvanced,
             ),
           ],
         ),
@@ -196,17 +219,25 @@ class _InfoBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return AnimatedCrossFade(
       crossFadeState: showAdvanced ? CrossFadeState.showSecond : CrossFadeState.showFirst,
       duration: const Duration(milliseconds: 200),
-      firstChild: Container(),
+      firstChild: const SizedBox.shrink(),
       secondChild: Align(
         alignment: Alignment.topRight,
         child: Padding(
-          padding: const EdgeInsets.all(15),
+          padding: const EdgeInsets.only(left: 18, top: 78, right: 18),
           child: Card(
+            margin: EdgeInsets.zero,
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.94),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+              side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(15),
+              padding: const EdgeInsets.all(18),
               child: Table(
                 columnWidths: const {
                   0: IntrinsicColumnWidth(),

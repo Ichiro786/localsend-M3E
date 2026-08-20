@@ -214,6 +214,9 @@ class Translations$receiveTab$en {
 
   /// en: 'Receive via link'
   String get link => 'Receive via link';
+
+  /// en: 'Share files privately and securely'
+  String get subtitle => 'Share files privately and securely';
 }
 
 // Path: sendTab

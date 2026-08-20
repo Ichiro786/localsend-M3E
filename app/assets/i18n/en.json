@@ -52,7 +52,8 @@
       "favorites": "Favorites",
       "on": "@:general.on"
     },
-    "link": "Receive via link"
+    "link": "Receive via link",
+    "subtitle": "Share files privately and securely"
   },
   "sendTab": {
     "title": "Send",

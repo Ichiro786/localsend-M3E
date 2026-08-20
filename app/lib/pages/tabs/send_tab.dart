@@ -17,17 +17,15 @@ import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/util/favorites.dart';
 import 'package:localsend_app/util/native/file_picker.dart';
 import 'package:localsend_app/util/native/platform_check.dart';
-import 'package:localsend_app/widget/big_button.dart';
 import 'package:localsend_app/widget/custom_icon_button.dart';
 import 'package:localsend_app/widget/dialogs/add_file_dialog.dart';
 import 'package:localsend_app/widget/dialogs/send_mode_help_dialog.dart';
 import 'package:localsend_app/widget/file_thumbnail.dart';
 import 'package:localsend_app/widget/list_tile/device_list_tile.dart';
 import 'package:localsend_app/widget/list_tile/device_placeholder_list_tile.dart';
+import 'package:localsend_app/widget/m3e/m3e_components.dart';
 import 'package:localsend_app/widget/opacity_slideshow.dart';
-import 'package:localsend_app/widget/responsive_builder.dart';
 import 'package:localsend_app/widget/responsive_list_view.dart';
-import 'package:localsend_app/widget/responsive_wrap_view.dart';
 import 'package:localsend_app/widget/rotating_widget.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/session_status.dart';
@@ -38,6 +36,40 @@ import 'package:routerino/routerino.dart';
 const _horizontalPadding = 15.0;
 final pickerOptions = FilePickerOption.getOptionsForPlatform();
 
+class _SelectionGrid extends StatelessWidget {
+  final Future<void> Function(FilePickerOption option) onSelect;
+
+  const _SelectionGrid({required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 520 ? 3 : 2;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: pickerOptions.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisExtent: 164,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemBuilder: (context, index) {
+            final option = pickerOptions[index];
+            return M3eSelectionCard(
+              icon: option.icon,
+              label: option.label,
+              onTap: () => onSelect(option),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class SendTab extends StatelessWidget {
   const SendTab();
 
@@ -47,45 +79,42 @@ class SendTab extends StatelessWidget {
       provider: (ref) => sendTabVmProvider,
       init: (context) async => context.global.dispatchAsync(SendTabInitAction(context)), // ignore: discarded_futures
       builder: (context, vm) {
-        final sizingInformation = SizingInformation(MediaQuery.sizeOf(context).width);
-        final buttonWidth = sizingInformation.isDesktop ? BigButton.desktopWidth : BigButton.mobileWidth;
         final ref = context.ref;
         return ResponsiveListView(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             if (vm.selectedFiles.isEmpty) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Text(
                   t.sendTab.selection.title,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-              ResponsiveWrapView(
-                outerHorizontalPadding: 15,
-                outerVerticalPadding: 10,
-                childPadding: 10,
-                minChildWidth: buttonWidth,
-                children: pickerOptions.map((option) {
-                  return BigButton(
-                    icon: option.icon,
-                    label: option.label,
-                    filled: false,
-                    onTap: () async => ref.global.dispatchAsync(
-                      PickFileAction(
-                        option: option,
-                        context: context,
-                      ),
+              const SizedBox(height: 14),
+              _SelectionGrid(
+                onSelect: (option) async {
+                  await ref.global.dispatchAsync(
+                    PickFileAction(
+                      option: option,
+                      context: context,
                     ),
                   );
-                }).toList(),
+                },
               ),
+              const SizedBox(height: 22),
             ] else ...[
               Card(
-                margin: const EdgeInsets.only(bottom: 10, left: _horizontalPadding, right: _horizontalPadding),
+                margin: EdgeInsets.zero,
+                color: Theme.of(context).colorScheme.surfaceContainerLow.withValues(alpha: 0.88),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
                 child: Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 15, top: 5, bottom: 15),
+                  padding: const EdgeInsetsDirectional.only(start: 18, top: 12, bottom: 15, end: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -167,37 +196,35 @@ class SendTab extends StatelessWidget {
                 ),
               ),
             ],
-            Row(
-              children: [
-                const SizedBox(width: _horizontalPadding),
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Text(t.sendTab.nearbyDevices, style: Theme.of(context).textTheme.titleMedium),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      t.sendTab.nearbyDevices,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                _ScanButton(
-                  ips: vm.localIps,
-                ),
-                Tooltip(
-                  message: t.sendTab.manualSending,
-                  child: CustomIconButton(
+                  _ScanButton(ips: vm.localIps),
+                  const SizedBox(width: 6),
+                  M3eIconButton(
+                    tooltip: t.sendTab.manualSending,
                     onPressed: () async => vm.onTapAddress(context),
-                    child: const Icon(Icons.ads_click),
+                    icon: Icons.ads_click,
                   ),
-                ),
-                Tooltip(
-                  message: t.dialogs.favoriteDialog.title,
-                  child: CustomIconButton(
-                    onPressed: () async => await vm.onTapFavorite(context),
-                    child: const Icon(Icons.favorite),
+                  const SizedBox(width: 6),
+                  M3eIconButton(
+                    tooltip: t.dialogs.favoriteDialog.title,
+                    onPressed: () async => vm.onTapFavorite(context),
+                    icon: Icons.favorite,
                   ),
-                ),
-                _SendModeButton(
-                  onSelect: (mode) async => vm.onTapSendMode(context, mode),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  _SendModeButton(
+                    onSelect: (mode) async => vm.onTapSendMode(context, mode),
+                  ),
+                ],
+              ),
             ),
             if (vm.nearbyDevices.isEmpty)
               const Padding(
@@ -230,42 +257,68 @@ class SendTab extends StatelessWidget {
                 ),
               );
             }),
-            const SizedBox(height: 10),
-            Center(
-              child: TextButton(
-                onPressed: () async {
-                  await context.push(() => const TroubleshootPage());
-                },
-                child: Text(t.troubleshootPage.title),
+            const SizedBox(height: 18),
+            Semantics(
+              button: true,
+              label: t.troubleshootPage.title,
+              child: Card(
+                margin: EdgeInsets.zero,
+                color: Theme.of(context).colorScheme.surfaceContainerLow.withValues(alpha: 0.82),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.45)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () async {
+                    await context.push(() => const TroubleshootPage());
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+                    child: Consumer(
+                      builder: (context, ref) {
+                        final animations = ref.watch(animationProvider);
+                        return OpacitySlideshow(
+                          durationMillis: 6000,
+                          running: animations,
+                          children: [
+                            Column(
+                              children: [
+                                Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary, size: 32),
+                                const SizedBox(height: 8),
+                                Text(
+                                  t.troubleshootPage.title,
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  t.sendTab.help,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                            if (checkPlatformCanReceiveShareIntent())
+                              Text(
+                                t.sendTab.shareIntentInfo,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
-              child: Consumer(
-                builder: (context, ref) {
-                  final animations = ref.watch(animationProvider);
-                  return OpacitySlideshow(
-                    durationMillis: 6000,
-                    running: animations,
-                    children: [
-                      Text(
-                        t.sendTab.help,
-                        style: const TextStyle(color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                      if (checkPlatformCanReceiveShareIntent())
-                        Text(
-                          t.sendTab.shareIntentInfo,
-                          style: const TextStyle(color: Colors.grey),
-                          textAlign: TextAlign.center,
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 50),
+            const SizedBox(height: 16),
           ],
         );
       },
@@ -304,7 +357,14 @@ class _CircularPopupButton<T> extends StatelessWidget {
             onSelected: onSelected,
             tooltip: tooltip,
             itemBuilder: itemBuilder,
-            child: child,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.86),
+                shape: BoxShape.circle,
+                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              child: Padding(padding: const EdgeInsets.all(13), child: child),
+            ),
           ),
         ),
       ),
@@ -335,12 +395,13 @@ class _ScanButton extends StatelessWidget {
           duration: const Duration(seconds: 2),
           spinning: spinning,
           reverse: true,
-          child: CustomIconButton(
+          child: M3eIconButton(
+            tooltip: t.sendTab.scan,
             onPressed: () async {
               context.redux(nearbyDevicesProvider).dispatch(ClearFoundDevicesAction());
               await context.global.dispatchAsync(StartSmartScan());
             },
-            child: Icon(Icons.sync, color: iconColor),
+            icon: Icons.sync,
           ),
         ),
       );
@@ -374,10 +435,7 @@ class _ScanButton extends StatelessWidget {
         duration: const Duration(seconds: 2),
         spinning: spinning,
         reverse: true,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Icon(Icons.sync, color: iconColor),
-        ),
+        child: Icon(Icons.sync, color: iconColor),
       ),
     );
   }

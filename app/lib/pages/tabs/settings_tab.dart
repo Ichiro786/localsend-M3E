@@ -45,13 +45,17 @@ class SettingsTab extends StatelessWidget {
       builder: (context, vm) {
         final ref = context.ref;
         return ResponsiveListView(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 40),
+          padding: const EdgeInsets.fromLTRB(16, 28, 16, 36),
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Text(t.settingsTab.title, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+              padding: const EdgeInsets.only(top: 4, bottom: 14),
+              child: Text(
+                t.settingsTab.title,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 8),
             _SettingsSection(
               title: t.settingsTab.general.title,
               children: [
@@ -617,22 +621,46 @@ class _SettingsEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final icon = _settingsIcon(label);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          if (icon != null) ...[
+            Icon(icon, color: scheme.primary, size: 24),
+            const SizedBox(width: 12),
+          ],
           Expanded(
-            child: Text(label),
+            flex: 5,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
           ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 150,
+          const SizedBox(width: 12),
+          Flexible(
+            flex: 6,
             child: child,
           ),
         ],
       ),
     );
   }
+}
+
+IconData? _settingsIcon(String label) {
+  if (label == t.settingsTab.general.brightness) return Icons.dark_mode_outlined;
+  if (label == t.settingsTab.general.color) return Icons.palette_outlined;
+  if (label == t.settingsTab.general.language) return Icons.language;
+  if (label == t.settingsTab.general.animations) return Icons.auto_awesome;
+  if (label == t.settingsTab.receive.quickSave) return Icons.download_outlined;
+  if (label == t.settingsTab.receive.quickSaveFromFavorites) return Icons.favorite_border;
+  if (label == t.settingsTab.receive.requirePin) return Icons.lock_outline;
+  if (label == t.settingsTab.network.alias) return Icons.badge_outlined;
+  if (label == t.settingsTab.network.encryption) return Icons.shield_outlined;
+  return null;
 }
 
 /// A specialized version of [_SettingsEntry].
@@ -652,29 +680,26 @@ class _BooleanEntry extends StatelessWidget {
     final theme = Theme.of(context);
     return _SettingsEntry(
       label: label,
-      child: Stack(
-        children: [
-          Container(
-            width: double.infinity,
-            height: 50,
-            decoration: BoxDecoration(
-              color: theme.inputDecorationTheme.fillColor,
-              borderRadius: theme.inputDecorationTheme.borderRadius,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.86),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+        ),
+        child: SizedBox(
+          height: 56,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Switch(
+              value: value,
+              onChanged: onChanged,
+              activeTrackColor: theme.colorScheme.primary,
+              activeThumbColor: theme.colorScheme.onPrimary,
+              inactiveThumbColor: theme.colorScheme.outline,
+              inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
             ),
           ),
-          Positioned.fill(
-            child: Center(
-              child: Switch(
-                value: value,
-                onChanged: onChanged,
-                activeTrackColor: theme.colorScheme.primary,
-                activeThumbColor: theme.colorScheme.onPrimary,
-                inactiveThumbColor: theme.colorScheme.outline,
-                inactiveTrackColor: theme.colorScheme.surface,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -694,22 +719,24 @@ class _ButtonEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return _SettingsEntry(
       label: label,
-      child: TextButton(
-        style: TextButton.styleFrom(
-          backgroundColor: Theme.of(context).inputDecorationTheme.fillColor,
-          shape: RoundedRectangleBorder(borderRadius: Theme.of(context).inputDecorationTheme.borderRadius),
-          foregroundColor: Theme.of(context).colorScheme.onSurface,
-        ),
+      child: FilledButton.tonal(
         onPressed: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Text(
-            buttonLabel,
-            style: Theme.of(context).textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 56),
+          backgroundColor: scheme.surfaceContainerHigh,
+          foregroundColor: scheme.onSurface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+        ),
+        child: Text(
+          buttonLabel,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
         ),
       ),
     );
@@ -724,21 +751,35 @@ class _SettingsSection extends StatelessWidget {
   const _SettingsSection({
     required this.title,
     required this.children,
-    this.padding = const EdgeInsets.only(bottom: 15),
+    this.padding = const EdgeInsets.only(bottom: 18),
   });
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: padding,
       child: Card(
+        margin: EdgeInsets.zero,
+        color: scheme.surfaceContainerLow.withValues(alpha: 0.84),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+        ),
         child: Padding(
-          padding: const EdgeInsets.only(left: 15, right: 15, top: 15),
+          padding: const EdgeInsets.fromLTRB(22, 22, 18, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 10),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 14),
               ...children,
             ],
           ),

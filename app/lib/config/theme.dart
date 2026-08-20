@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:localsend_app/config/m3e_tokens.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/persistence/color_mode.dart';
 import 'package:localsend_app/provider/device_info_provider.dart';
@@ -8,7 +9,7 @@ import 'package:localsend_app/util/ui/dynamic_colors.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:yaru/yaru.dart' as yaru;
 
-final _borderRadius = BorderRadius.circular(5);
+final _borderRadius = BorderRadius.circular(M3eTokens.controlRadius);
 
 ThemeData getTheme(ColorMode colorMode, Color customColor, Brightness brightness, DynamicColors? dynamicColors) {
   if (colorMode == ColorMode.yaru) {
@@ -52,25 +53,40 @@ ThemeData getTheme(ColorMode colorMode, Color customColor, Brightness brightness
   return ThemeData(
     colorScheme: colorScheme,
     useMaterial3: true,
+    scaffoldBackgroundColor: colorScheme.surface,
+    canvasColor: colorScheme.surface,
     // same density on all platforms so desktop matches mobile (defaults to compact on desktop)
     visualDensity: VisualDensity.standard,
-    navigationBarTheme: colorScheme.brightness == Brightness.dark
-        ? NavigationBarThemeData(
-            iconTheme: WidgetStateProperty.all(const IconThemeData(color: Colors.white)),
-          )
-        : null,
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      indicatorColor: colorScheme.primaryContainer,
+      labelTextStyle: WidgetStatePropertyAll(
+        TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: colorScheme.secondaryContainer,
+      fillColor: colorScheme.surfaceContainerHigh,
       border: colorScheme.brightness == Brightness.light ? lightInputBorder : darkInputBorder,
-      focusedBorder: colorScheme.brightness == Brightness.light ? lightInputBorder : darkInputBorder,
+      focusedBorder: lightInputBorder.copyWith(borderSide: BorderSide(color: colorScheme.primary, width: 1.5)),
       enabledBorder: colorScheme.brightness == Brightness.light ? lightInputBorder : darkInputBorder,
-      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        foregroundColor: colorScheme.brightness == Brightness.dark ? Colors.white : null,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        foregroundColor: colorScheme.onPrimary,
+        backgroundColor: colorScheme.primary,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: const StadiumBorder(),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
@@ -188,16 +204,26 @@ ThemeData _getYaruTheme(Brightness brightness) {
         : null,
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: colorScheme.secondaryContainer,
+      fillColor: colorScheme.surfaceContainerHigh,
       border: colorScheme.brightness == Brightness.light ? lightInputBorder : darkInputBorder,
-      focusedBorder: colorScheme.brightness == Brightness.light ? lightInputBorder : darkInputBorder,
+      focusedBorder: lightInputBorder.copyWith(borderSide: BorderSide(color: colorScheme.primary, width: 1.5)),
       enabledBorder: colorScheme.brightness == Brightness.light ? lightInputBorder : darkInputBorder,
-      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        foregroundColor: colorScheme.brightness == Brightness.dark ? Colors.white : null,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        foregroundColor: colorScheme.onPrimary,
+        backgroundColor: colorScheme.primary,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: const StadiumBorder(),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
