@@ -1,5 +1,6 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:localsend_isolates/util/sleep.dart';
 
 class RotatingWidget extends StatefulWidget {
   final Duration duration;
@@ -19,50 +20,55 @@ class RotatingWidget extends StatefulWidget {
   State<RotatingWidget> createState() => RotatingWidgetState();
 }
 
-class RotatingWidgetState extends State<RotatingWidget> {
-  static const _fps = 30;
-  static const _tickDuration = 1000 ~/ _fps; // in milliseconds
-  static const _maxRadians = 6.28; // 360 degrees in radians
-  double _angle = 0; // in radians
-  double _anglePerTick = 0;
+class RotatingWidgetState extends State<RotatingWidget> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: widget.duration,
+  );
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateAnglePerTick();
-      _loop();
-    });
+    _syncAnimation();
   }
 
-  void _updateAnglePerTick() {
-    _anglePerTick = _maxRadians / (widget.duration.inMilliseconds / _tickDuration);
-    if (widget.reverse) {
-      _anglePerTick = -_anglePerTick;
+  @override
+  void didUpdateWidget(covariant RotatingWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.duration != widget.duration) {
+      _controller.duration = widget.duration;
     }
+    _syncAnimation();
   }
 
-  /// This loop has a much greater performance than using [AnimationController].
-  void _loop() async {
-    while (true) {
-      await sleepAsync(_tickDuration);
-      if (!mounted) {
-        return;
+  void _syncAnimation() {
+    if (widget.spinning) {
+      if (!_controller.isAnimating) {
+        _controller.repeat(); // ignore: discarded_futures
       }
-      if (!widget.spinning) {
-        continue;
-      }
-      setState(() {
-        _angle = (_angle + _anglePerTick) % _maxRadians;
-      });
+    } else if (_controller.isAnimating) {
+      _controller.stop(canceled: false);
     }
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: _angle,
+    return AnimatedBuilder(
+      animation: _controller,
       child: widget.child,
+      builder: (context, child) {
+        final direction = widget.reverse ? -1 : 1;
+        return Transform.rotate(
+          angle: direction * _controller.value * math.pi * 2,
+          child: child,
+        );
+      },
     );
   }
 }

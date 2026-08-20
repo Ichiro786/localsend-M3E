@@ -50,7 +50,8 @@ class _OpacitySlideshowState extends State<OpacitySlideshow> {
   }
 
   void _startTimer() {
-    if (widget.children.length <= 1) {
+    _timer?.cancel();
+    if (!widget.running || widget.children.length <= 1) {
       return;
     }
 

@@ -332,7 +332,7 @@ class _M3eNavigationDestination extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
+                  duration: M3eTokens.shortMotion,
                   child: Icon(
                     destination.icon,
                     key: ValueKey(selected),

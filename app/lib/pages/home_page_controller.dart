@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:localsend_app/config/m3e_tokens.dart';
 import 'package:localsend_app/pages/home_page.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
@@ -36,7 +39,17 @@ class ChangeTabAction extends ReduxAction<HomePageController, HomePageVm> {
 
   @override
   HomePageVm reduce() {
-    state.controller.jumpToPage(tab.index);
+    if (state.controller.hasClients) {
+      unawaited(
+        state.controller.animateToPage(
+          tab.index,
+          duration: M3eTokens.standardMotion,
+          curve: M3eTokens.responsiveCurve,
+        ),
+      );
+    } else {
+      state.controller.jumpToPage(tab.index);
+    }
     return HomePageVm(
       controller: state.controller,
       currentTab: tab,

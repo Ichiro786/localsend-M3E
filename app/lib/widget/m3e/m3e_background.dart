@@ -108,7 +108,7 @@ class _M3eBlob extends StatelessWidget {
         scale: scale,
         child: RepaintBoundary(
           child: ClipPath(
-            clipper: _OrganicBlobClipper(),
+            clipper: const _OrganicBlobClipper(),
             child: ColoredBox(
               color: color,
               child: SizedBox(width: width, height: height),
@@ -121,6 +121,8 @@ class _M3eBlob extends StatelessWidget {
 }
 
 class _OrganicBlobClipper extends CustomClipper<Path> {
+  const _OrganicBlobClipper();
+
   @override
   Path getClip(Size size) {
     final path = Path();
