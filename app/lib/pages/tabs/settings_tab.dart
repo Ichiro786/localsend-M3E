@@ -678,24 +678,16 @@ class _BooleanEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return _SettingsEntry(
       label: label,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.86),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-        ),
-        child: SizedBox(
-          height: 56,
-          child: Align(
-            alignment: Alignment.center,
-            child: M3eExpressiveSwitch(
-              value: value,
-              onChanged: onChanged,
-              semanticLabel: '$label, ${value ? t.general.on : t.general.off}',
-            ),
+      child: SizedBox(
+        height: 56,
+        child: Align(
+          alignment: Alignment.center,
+          child: M3eExpressiveSwitch(
+            value: value,
+            onChanged: onChanged,
+            semanticLabel: '$label, ${value ? t.general.on : t.general.off}',
           ),
         ),
       ),
