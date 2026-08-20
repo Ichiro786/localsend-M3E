@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:localsend_app/config/init.dart';
-import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/pages/home_page_controller.dart';
 import 'package:localsend_app/pages/tabs/receive_tab.dart';
@@ -11,11 +10,13 @@ import 'package:localsend_app/pages/tabs/send_tab.dart';
 import 'package:localsend_app/pages/tabs/settings_tab.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/util/native/cross_file_converters.dart';
+import 'package:localsend_app/widget/m3e/m3e_background.dart';
+import 'package:localsend_app/widget/m3e/m3e_components.dart';
 import 'package:localsend_app/widget/responsive_builder.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
 enum HomeTab {
-  receive(Icons.wifi),
+  receive(Icons.download_for_offline_outlined),
   send(Icons.send),
   settings(Icons.settings)
   ;
@@ -101,79 +102,87 @@ class _HomePageState extends State<HomePage> with Refena {
       },
       child: ResponsiveBuilder(
         builder: (sizingInformation) {
-          return Scaffold(
-            body: Row(
-              children: [
-                if (!sizingInformation.isMobile)
-                  NavigationRail(
-                    selectedIndex: vm.currentTab.index,
-                    onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index]),
-                    extended: sizingInformation.isDesktop,
-                    backgroundColor: Theme.of(context).cardColorWithElevation,
-                    leading: sizingInformation.isDesktop
-                        ? const Column(
-                            children: [
-                              SizedBox(height: 20),
-                              Text(
-                                'LocalSend',
-                                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                              SizedBox(height: 20),
-                            ],
-                          )
-                        : null,
-                    destinations: HomeTab.values.map((tab) {
-                      return NavigationRailDestination(
-                        icon: Icon(tab.icon),
-                        label: Text(tab.label),
-                      );
-                    }).toList(),
-                  ),
-                Expanded(
-                  child: SafeArea(
-                    left: sizingInformation.isMobile,
-                    child: Stack(
-                      children: [
-                        PageView(
-                          controller: vm.controller,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: const [
-                            ReceiveTab(),
-                            SendTab(),
-                            SettingsTab(),
-                          ],
-                        ),
-                        if (_dragAndDropIndicator)
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).scaffoldBackgroundColor,
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+          return M3eExpressiveBackground(
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Row(
+                children: [
+                  if (!sizingInformation.isMobile)
+                    NavigationRail(
+                      selectedIndex: vm.currentTab.index,
+                      onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index]),
+                      extended: sizingInformation.isDesktop,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.82),
+                      leading: sizingInformation.isDesktop
+                          ? const Column(
                               children: [
-                                const Icon(Icons.file_download, size: 128),
-                                const SizedBox(height: 30),
-                                Text(t.sendTab.placeItems, style: Theme.of(context).textTheme.titleLarge),
+                                SizedBox(height: 20),
+                                Text(
+                                  'LocalSend',
+                                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                SizedBox(height: 20),
                               ],
-                            ),
+                            )
+                          : null,
+                      destinations: HomeTab.values.map((tab) {
+                        return NavigationRailDestination(
+                          icon: Icon(tab.icon),
+                          label: Text(tab.label),
+                        );
+                      }).toList(),
+                    ),
+                  Expanded(
+                    child: SafeArea(
+                      left: sizingInformation.isMobile,
+                      child: Stack(
+                        children: [
+                          PageView(
+                            controller: vm.controller,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: const [
+                              ReceiveTab(),
+                              SendTab(),
+                              SettingsTab(),
+                            ],
                           ),
-                      ],
+                          if (_dragAndDropIndicator)
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).scaffoldBackgroundColor,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.file_download, size: 128),
+                                  const SizedBox(height: 30),
+                                  Text(t.sendTab.placeItems, style: Theme.of(context).textTheme.titleLarge),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              bottomNavigationBar: sizingInformation.isMobile
+                  ? M3eFloatingNavigationBar(
+                      selectedIndex: vm.currentTab.index,
+                      destinations: HomeTab.values
+                          .map(
+                            (tab) => M3eNavigationDestination(
+                              icon: tab.icon,
+                              label: tab.label,
+                              onTap: () => vm.changeTab(tab),
+                            ),
+                          )
+                          .toList(),
+                    )
+                  : null,
             ),
-            bottomNavigationBar: sizingInformation.isMobile
-                ? NavigationBar(
-                    selectedIndex: vm.currentTab.index,
-                    onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index]),
-                    destinations: HomeTab.values.map((tab) {
-                      return NavigationDestination(icon: Icon(tab.icon), label: tab.label);
-                    }).toList(),
-                  )
-                : null,
           );
         },
       ),
