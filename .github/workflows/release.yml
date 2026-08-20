@@ -132,6 +132,12 @@ jobs:
             ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
+      - name: Remove temporary signing files
+        if: always()
+        run: |
+          rm -f "$APK_BUILD_DIR/app/android/key.properties"
+          rm -f "$APK_BUILD_DIR/secrets/android-keystore.jks"
+
   build_tar_x86_64:
     needs: build
     runs-on: ubuntu-22.04
