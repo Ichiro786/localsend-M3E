@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:localsend_app/config/m3e_tokens.dart';
 import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/send_mode.dart';
@@ -227,6 +228,7 @@ class SendTab extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: M3eTokens.standardGap),
             if (vm.nearbyDevices.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(bottom: 10, left: _horizontalPadding, right: _horizontalPadding),

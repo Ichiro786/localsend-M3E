@@ -2,6 +2,19 @@
 
 LocalSend M3E uses the unique Android application ID `com.localsend.m3e`. The visible application label remains **LocalSend**. Because the application ID differs from the official LocalSend application ID (`org.localsend.localsend_app`), Android treats M3E as a separate installable application and the two packages can coexist on the same device.
 
+## Final v1.0.0 identity
+
+The first public M3E release uses version name **1.0.0** and Android versionCode **64**. The previous M3E build used versionCode 63, so 64 preserves normal update ordering. Gradle namespace, manifest package metadata, and app-owned Kotlin packages are aligned to `com.localsend.m3e`; Dart package/import names and the existing Flutter method-channel identifier remain unchanged.
+
+The public Android release contains only these split APKs:
+
+| Architecture | Artifact |
+| --- | --- |
+| ARM64 | `LocalSend-1.0.0-arm64-v8a.apk` |
+| ARMv7 | `LocalSend-1.0.0-armeabi-v7a.apk` |
+
+The production workflow runs from `v*.*.*` tags and validates that the tag matches the version in `app/pubspec.yaml` before building.
+
 ## Production signing inputs
 
 The release workflows use two GitHub Actions secrets:
@@ -31,14 +44,14 @@ base64 -w 0 /secure/path/localsend-m3e-release.jks
 
 ## Workflow behavior
 
-The existing production release workflow remains responsible for signed split-per-ABI release builds. The Phase 4 workflow is manually dispatched and uses the same two secrets when available. If either secret is absent, it intentionally performs an **unsigned release build for size and package-identity validation only**; that output is not a production release and must not be distributed as a signed update.
+The existing production release workflow remains responsible for signed split-per-ABI release builds. It publishes only the ARM64 and ARMv7 APKs named above. The Phase 4 workflow is manually dispatched and uses the same two secrets when available. If either secret is absent, it intentionally performs an **unsigned release build for size and package-identity validation only**; that output is not a production release and must not be distributed as a signed update.
 
 The release checks verify the following conditions:
 
 1. The package identity is `com.localsend.m3e`.
 2. The visible application label is `LocalSend`.
 3. The official package identity is not present in the generated APK.
-4. The ARM64 split APK and universal release APK are produced.
+4. The ARM64 and ARMv7 split release APKs are produced with no x86 or x86_64 libraries.
 5. Temporary signing files are removed at the end of the CI job.
 
 ## Update and installation policy

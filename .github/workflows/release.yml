@@ -1,6 +1,9 @@
 name: Release Draft
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
 
 env:
@@ -20,7 +23,15 @@ jobs:
         id: get_version
         run: |
           VERSION=$(sed -n 's/^version: \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' app/pubspec.yaml)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION_CODE=$(sed -n 's/^version: [^+]*+\([0-9]*\).*/\1/p' app/pubspec.yaml)
+          test "$VERSION" = "1.0.0"
+          test "$VERSION_CODE" -gt 63
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            test "$GITHUB_REF_NAME" = "v$VERSION"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "Validated release $VERSION+$VERSION_CODE"
 
   build_apk:
     needs: build
@@ -50,6 +61,9 @@ jobs:
           ENCODED_STRING: ${{ secrets.ANDROID_KEY_STORE }}
         run: mkdir secrets && echo $ENCODED_STRING | base64 -di > secrets/android-keystore.jks
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -76,7 +90,34 @@ jobs:
 
       - name: Build APK
         working-directory: ${{ env.APK_BUILD_DIR }}/app
-        run: flutter build apk --split-per-abi
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --no-pub
+
+      - name: Verify Android release APKs
+        working-directory: ${{ env.APK_BUILD_DIR }}/app
+        env:
+          EXPECTED_VERSION: ${{ needs.build.outputs.version }}
+          EXPECTED_VERSION_CODE: ${{ needs.build.outputs.version_code }}
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        run: |
+          set -e
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          test -x "$AAPT"
+          for apk in \
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk; do
+            test -f "$apk"
+            "$AAPT" dump badging "$apk" | grep -F "package: name='com.localsend.m3e' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION'"
+            "$AAPT" dump badging "$apk" | grep -F "application-label:'LocalSend'"
+            if "$AAPT" dump badging "$apk" | grep -Fq 'org.localsend.localsend_app'; then
+              echo "Official package identity found in $apk"
+              exit 1
+            fi
+          done
+          unzip -l build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk | grep -F 'lib/armeabi-v7a/'
+          ! unzip -l build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk | grep -Eq 'lib/(arm64-v8a|x86|x86_64)/'
+          unzip -l build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | grep -F 'lib/arm64-v8a/'
+          ! unzip -l build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/'
+          stat -c '%n %s bytes' build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v6
@@ -85,7 +126,6 @@ jobs:
           path: |
             ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-x86_64-release.apk
 
   build_tar_x86_64:
     needs: build
@@ -787,7 +827,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag: v${{ needs.build.outputs.version }}
-          name: v${{ needs.build.outputs.version }}
+          name: LocalSend M3E v${{ needs.build.outputs.version }}
 
       # APK
       - name: Download apk file
@@ -806,7 +846,7 @@ jobs:
         with:
           upload_url: ${{ steps.draft_release.outputs.upload_url }}
           asset_path: app-armeabi-v7a-release.apk
-          asset_name: LocalSend-${{ needs.build.outputs.version }}-android-arm32v7.apk
+          asset_name: LocalSend-${{ needs.build.outputs.version }}-armeabi-v7a.apk
           asset_content_type: application/vnd.android.package-archive
 
       - name: Upload Release Asset (arm64v8)
@@ -816,17 +856,7 @@ jobs:
         with:
           upload_url: ${{ steps.draft_release.outputs.upload_url }}
           asset_path: app-arm64-v8a-release.apk
-          asset_name: LocalSend-${{ needs.build.outputs.version }}-android-arm64v8.apk
-          asset_content_type: application/vnd.android.package-archive
-
-      - name: Upload Release Asset (x64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: app-x86_64-release.apk
-          asset_name: LocalSend-${{ needs.build.outputs.version }}-android-x64.apk
+          asset_name: LocalSend-${{ needs.build.outputs.version }}-arm64-v8a.apk
           asset_content_type: application/vnd.android.package-archive
 
       # TAR.GZ (x86_64)

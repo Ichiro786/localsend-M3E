@@ -27,11 +27,6 @@ bool checkPlatformCanReceiveShareIntent() {
   return checkPlatform([TargetPlatform.android, TargetPlatform.iOS]);
 }
 
-/// This platform can select folders
-bool checkPlatformWithFolderSelect() {
-  return checkPlatform([TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.linux, TargetPlatform.windows, TargetPlatform.macOS]);
-}
-
 /// This platform has a gallery
 bool checkPlatformWithGallery() {
   return checkPlatform([TargetPlatform.android, TargetPlatform.iOS]);

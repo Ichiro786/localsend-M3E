@@ -156,16 +156,6 @@ class PurchaseRestoreAction extends AsyncReduxAction<PurchaseService, PurchaseSt
   }
 }
 
-/// Action to reset the purchase state.
-/// Only used for testing.
-class PurchaseResetAction extends ReduxAction<PurchaseService, PurchaseState> {
-  @override
-  PurchaseState reduce() => state.copyWith(
-    purchases: {},
-    pending: false,
-  );
-}
-
 /// Initiate the purchase flow for a product.
 /// The actual callbacks are handled by [_HandlePurchaseUpdate].
 class PurchaseAction extends AsyncReduxAction<PurchaseService, PurchaseState> {

@@ -1,4 +1,4 @@
-package org.localsend.localsend_app
+package com.localsend.m3e
 
 import android.annotation.SuppressLint
 import android.app.Activity
