@@ -153,7 +153,7 @@ jobs:
               printf '%s\n' "$verify_output"
               exit 1
             fi
-            if ! printf '%s\n' "$verify_output" | grep -Fq 'Signer #1 certificate DN:'; then
+            if ! printf '%s\n' "$verify_output" | grep -Eq '(Signer #[0-9]+ certificate DN:|V[123] Signer: certificate DN:)'; then
               echo "No signer certificate was reported for $apk"
               printf '%s\n' "$verify_output"
               exit 1
