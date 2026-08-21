@@ -13,7 +13,7 @@ The public Android release contains only these split APKs:
 | ARM64 | `LocalSend-1.0.0-arm64-v8a.apk` |
 | ARMv7 | `LocalSend-1.0.0-armeabi-v7a.apk` |
 
-The production workflow runs from `v*.*.*` tags and validates that the tag matches the version in `app/pubspec.yaml` before building.
+The Android production workflow is manually dispatched from the verified `main` branch. It validates `1.0.0+64`, builds and verifies both Android APKs, creates tag `v1.0.0` only after verification succeeds, and then publishes the matching GitHub Release.
 
 ## Production signing inputs
 
@@ -44,7 +44,7 @@ base64 -w 0 /secure/path/localsend-m3e-release.jks
 
 ## Workflow behavior
 
-`.github/workflows/release.yml` is the **canonical Phase 5 production release workflow**. It runs from a matching `v*.*.*` tag (or manual dispatch for maintainer-controlled testing), requires both encrypted signing secrets before any Android build, decodes them only inside the CI runner, builds only ARM64 and ARMv7 release APKs, verifies their certificates with `apksigner`, uploads the two expected APK assets, and publishes the matching GitHub Release only after all required jobs succeed.
+`.github/workflows/android-release.yml` is the **canonical Phase 5 production release workflow**. It is manually dispatched from `main`, requires both encrypted signing secrets before any Android build, decodes them only inside the CI runner, builds only ARM64 and ARMv7 release APKs, verifies their certificates and installability-related package structure, creates tag `v1.0.0` only after all checks pass, uploads exactly the two expected APK assets, and publishes the matching GitHub Release last.
 
 `.github/workflows/phase4-release-apk.yml` is a legacy/manual validation workflow and is not the final release mechanism. It is also fail-closed and cannot create an unsigned APK when signing credentials are missing. It must not be used instead of the canonical production workflow.
 
@@ -69,4 +69,4 @@ Never commit a private keystore, signing certificate with private material, pass
 
 ## Maintainer release checklist
 
-Before publishing a signed release, confirm that the two Actions secrets are configured, the canonical `.github/workflows/release.yml` completes successfully from the matching tag, `apksigner` verifies both APKs, the generated APKs report `com.localsend.m3e` and `LocalSend`, and the ARM64 release artifact is measured against another ARM64 **release** artifact rather than a debug build. Real-device installation, update, coexistence, and transfer testing remain required before public distribution.
+Before publishing a signed release, confirm that the two Actions secrets are configured, the canonical `.github/workflows/android-release.yml` completes successfully from `main`, `apksigner` verifies both APKs against the permanent certificate, the generated APKs report `com.localsend.m3e`, `LocalSend`, version `1.0.0`, and ABI version codes `642` and `643`, and the ARM64 release artifact is measured against another ARM64 **release** artifact rather than a debug build. Real-device installation, update, coexistence, and transfer testing remain required before public distribution.

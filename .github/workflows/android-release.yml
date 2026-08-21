@@ -1,0 +1,274 @@
+name: LocalSend M3E Android Production Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: localsend-m3e-android-production-release
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: "3.41.9"
+  APK_BUILD_DIR: "/tmp/build"
+  EXPECTED_VERSION: "1.0.0"
+  EXPECTED_VERSION_CODE: "64"
+  EXPECTED_CERT_SHA256: "64e3fbeef0c3c60df53499a87e00de23d3b8beee2869b29b59bfb1e7c2e062cf"
+  RELEASE_TAG: "v1.0.0"
+
+jobs:
+  build_android:
+    name: Build and verify signed ARM APKs
+    runs-on: ubuntu-22.04
+    outputs:
+      verified_commit: ${{ steps.commit.outputs.sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Record release commit
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Remove proprietary dependencies
+        run: sh support/scripts/remove_proprietary_dependencies.sh
+
+      - name: Copy files to isolated Android build directory
+        run: |
+          set -euo pipefail
+          mkdir -p "$APK_BUILD_DIR"
+          cp -a . "$APK_BUILD_DIR/"
+
+      - name: Require production signing credentials
+        env:
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+          ANDROID_KEY_STORE: ${{ secrets.ANDROID_KEY_STORE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEY_PROPERTIES" ] || [ -z "$ANDROID_KEY_STORE" ]; then
+            echo "Production signing credentials are missing. Configure ANDROID_KEY_PROPERTIES and ANDROID_KEY_STORE."
+            exit 1
+          fi
+          echo "Production signing credentials are present."
+
+      - name: Decode key.properties
+        working-directory: ${{ env.APK_BUILD_DIR }}
+        env:
+          ENCODED_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$ENCODED_KEY_PROPERTIES" | base64 --decode > app/android/key.properties
+          test -s app/android/key.properties
+          grep -Eq '^keyAlias=.+$' app/android/key.properties
+          grep -Eq '^keyPassword=.+$' app/android/key.properties
+          grep -Eq '^storePassword=.+$' app/android/key.properties
+
+      - name: Decode permanent Android keystore
+        working-directory: ${{ env.APK_BUILD_DIR }}
+        env:
+          ENCODED_KEY_STORE: ${{ secrets.ANDROID_KEY_STORE }}
+        run: |
+          set -euo pipefail
+          mkdir -p secrets
+          printf '%s' "$ENCODED_KEY_STORE" | base64 --decode > secrets/android-keystore.jks
+          test -s secrets/android-keystore.jks
+          sed -i "s#^storeFile=.*#storeFile=$APK_BUILD_DIR/secrets/android-keystore.jks#" app/android/key.properties
+          grep -Fq "storeFile=$APK_BUILD_DIR/secrets/android-keystore.jks" app/android/key.properties
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Check Rust toolchain
+        working-directory: ${{ env.APK_BUILD_DIR }}/packages/localsend_isolates
+        run: rustup show
+
+      - name: Install Dart dependencies
+        working-directory: ${{ env.APK_BUILD_DIR }}/app
+        run: flutter pub get
+
+      - name: Build exactly ARMv7 and ARM64 release APKs
+        working-directory: ${{ env.APK_BUILD_DIR }}/app
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --no-pub
+
+      - name: Verify signed, installable APKs and release metadata
+        working-directory: ${{ env.APK_BUILD_DIR }}/app
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        run: |
+          set -euo pipefail
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -name zipalign -type f | sort -V | tail -1)
+          test -x "$AAPT"
+          test -x "$APKSIGNER"
+          test -x "$ZIPALIGN"
+
+          APK_DIR="build/app/outputs/flutter-apk"
+          mapfile -t APK_FILES < <(find "$APK_DIR" -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort)
+          test "${#APK_FILES[@]}" -eq 2
+          printf '%s\n' "${APK_FILES[@]}" | grep -Fxq 'app-armeabi-v7a-release.apk'
+          printf '%s\n' "${APK_FILES[@]}" | grep -Fxq 'app-arm64-v8a-release.apk'
+          ! printf '%s\n' "${APK_FILES[@]}" | grep -Eq 'x86|base\.apk|app-release\.apk'
+
+          for apk in \
+            "$APK_DIR/app-armeabi-v7a-release.apk" \
+            "$APK_DIR/app-arm64-v8a-release.apk"; do
+            test -s "$apk"
+            "$ZIPALIGN" -c -v 4 "$apk"
+            if ! verify_output=$("$APKSIGNER" verify --verbose --print-certs "$apk" 2>&1); then
+              echo "APK signature verification failed: $apk"
+              printf '%s\n' "$verify_output"
+              exit 1
+            fi
+            printf '%s\n' "$verify_output" | grep -Eq 'Verified using v[123] scheme.*: true'
+            printf '%s\n' "$verify_output" | grep -Fq 'Number of signers: 1'
+            certificate_digest=$(printf '%s\n' "$verify_output" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+            test "$certificate_digest" = "$EXPECTED_CERT_SHA256"
+            ! printf '%s\n' "$verify_output" | grep -Fq 'CN=Android Debug'
+
+            badging=$("$AAPT" dump badging "$apk")
+            case "$apk" in
+              *app-armeabi-v7a-release.apk) expected_abi_code=642 ;;
+              *app-arm64-v8a-release.apk) expected_abi_code=643 ;;
+              *) echo "Unexpected APK path: $apk"; exit 1 ;;
+            esac
+            printf '%s\n' "$badging" | grep -Fq "package: name='com.localsend.m3e' versionCode='$expected_abi_code' versionName='$EXPECTED_VERSION'"
+            printf '%s\n' "$badging" | grep -Fq "application-label:'LocalSend'"
+            ! printf '%s\n' "$badging" | grep -Fq 'org.localsend.localsend_app'
+
+            case "$apk" in
+              *app-armeabi-v7a-release.apk)
+                unzip -l "$apk" | grep -Fq 'lib/armeabi-v7a/'
+                ! unzip -l "$apk" | grep -Eq 'lib/(arm64-v8a|x86|x86_64)/'
+                ;;
+              *app-arm64-v8a-release.apk)
+                unzip -l "$apk" | grep -Fq 'lib/arm64-v8a/'
+                ! unzip -l "$apk" | grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/'
+                ;;
+            esac
+            stat -c '%n %s bytes' "$apk"
+          done
+          echo "Signed and installable ARM APK verification passed."
+
+      - name: Prepare exact Android release asset names
+        working-directory: ${{ env.APK_BUILD_DIR }}/app
+        run: |
+          set -euo pipefail
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "LocalSend-${EXPECTED_VERSION}-arm64-v8a.apk"
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "LocalSend-${EXPECTED_VERSION}-armeabi-v7a.apk"
+          sha256sum "LocalSend-${EXPECTED_VERSION}-arm64-v8a.apk" "LocalSend-${EXPECTED_VERSION}-armeabi-v7a.apk"
+
+      - name: Upload only the two Android APKs for publication
+        uses: actions/upload-artifact@v6
+        with:
+          name: localsend-m3e-android-release-apks
+          if-no-files-found: error
+          path: |
+            ${{ env.APK_BUILD_DIR }}/app/LocalSend-${{ env.EXPECTED_VERSION }}-arm64-v8a.apk
+            ${{ env.APK_BUILD_DIR }}/app/LocalSend-${{ env.EXPECTED_VERSION }}-armeabi-v7a.apk
+
+      - name: Remove temporary signing files
+        if: always()
+        run: |
+          rm -f "$APK_BUILD_DIR/app/android/key.properties"
+          rm -f "$APK_BUILD_DIR/secrets/android-keystore.jks"
+
+  publish_android:
+    name: Tag and publish Android-only v1.0.0 release
+    needs: build_android
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: v1.0.0
+      VERIFIED_COMMIT: ${{ needs.build_android.outputs.verified_commit }}
+    steps:
+      - name: Checkout verified commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.build_android.outputs.verified_commit }}
+          fetch-depth: 0
+
+      - name: Confirm tag does not exist before verification-backed publication
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing $TAG. Remove the stale tag before rerunning."
+            exit 1
+          fi
+
+      - name: Download the two verified Android APKs
+        uses: actions/download-artifact@v7
+        with:
+          name: localsend-m3e-android-release-apks
+          path: android-release-apks
+
+      - name: Confirm publication contains exactly two APK assets
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find android-release-apks -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort)
+          test "${#assets[@]}" -eq 2
+          printf '%s\n' "${assets[@]}" | grep -Fxq 'LocalSend-1.0.0-arm64-v8a.apk'
+          printf '%s\n' "${assets[@]}" | grep -Fxq 'LocalSend-1.0.0-armeabi-v7a.apk'
+          ! printf '%s\n' "${assets[@]}" | grep -Eq 'x86|x86_64|linux|windows|AppImage|\.deb|\.tar'
+
+      - name: Create v1.0.0 tag only after Android verification succeeds
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$VERIFIED_COMMIT" -m "LocalSend M3E v1.0.0 Android production release"
+          git push origin "refs/tags/$TAG"
+
+      - name: Generate Android-only release changelog
+        run: |
+          set -euo pipefail
+          cp RELEASE_NOTES_V1.0.0.md release-notes.md
+          sed -i "s/Release date | To be set when the signed GitHub Release is published/Release date | $(date -u +%Y-%m-%d)/" release-notes.md
+          cat >> release-notes.md <<'EOF'
+
+          ## Release assets
+
+          This GitHub Release contains exactly two production-signed Android APKs: ARM64 (`LocalSend-1.0.0-arm64-v8a.apk`) and ARMv7 (`LocalSend-1.0.0-armeabi-v7a.apk`). No Linux, Windows, AppImage, Debian, tar, x86, or x86_64 artifacts are published.
+          EOF
+
+      - name: Create GitHub Release with only the two Android APKs
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            "android-release-apks/LocalSend-1.0.0-arm64-v8a.apk" \
+            "android-release-apks/LocalSend-1.0.0-armeabi-v7a.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$VERIFIED_COMMIT" \
+            --title "LocalSend M3E v1.0.0" \
+            --notes-file release-notes.md
+
+      - name: Verify published release asset set
+        run: |
+          set -euo pipefail
+          mapfile -t published < <(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort)
+          test "${#published[@]}" -eq 2
+          printf '%s\n' "${published[@]}" | grep -Fxq 'LocalSend-1.0.0-arm64-v8a.apk'
+          printf '%s\n' "${published[@]}" | grep -Fxq 'LocalSend-1.0.0-armeabi-v7a.apk'
+          ! printf '%s\n' "${published[@]}" | grep -Eq 'x86|x86_64|linux|windows|AppImage|\.deb|\.tar'
+          echo "Published Android-only release asset set verified."
