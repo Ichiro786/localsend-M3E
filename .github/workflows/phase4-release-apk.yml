@@ -15,19 +15,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Check release signing availability
-        id: signing
+      - name: Require production signing credentials
         env:
           ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
           ANDROID_KEY_STORE: ${{ secrets.ANDROID_KEY_STORE }}
         run: |
-          if [ -n "$ANDROID_KEY_PROPERTIES" ] && [ -n "$ANDROID_KEY_STORE" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-            echo 'Production signing secrets are available; release APKs will be signed.'
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo 'Production signing secrets are unavailable; release APKs will be unsigned for size/identity validation only.'
+          set -euo pipefail
+          if [ -z "$ANDROID_KEY_PROPERTIES" ] || [ -z "$ANDROID_KEY_STORE" ]; then
+            echo 'Release signing credentials are missing. Configure both ANDROID_KEY_PROPERTIES and ANDROID_KEY_STORE repository secrets before running this workflow.'
+            exit 1
           fi
+          echo 'Release signing credentials are present; production signing is required.'
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -50,14 +48,19 @@ jobs:
           toolchain: stable
 
       - name: Decode release signing files
-        if: steps.signing.outputs.available == 'true'
         working-directory: app/android
         env:
           ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
           ANDROID_KEY_STORE: ${{ secrets.ANDROID_KEY_STORE }}
         run: |
+          set -euo pipefail
           printf '%s' "$ANDROID_KEY_PROPERTIES" | base64 --decode > key.properties
+          test -s key.properties
+          grep -Eq '^keyAlias=.+$' key.properties
+          grep -Eq '^keyPassword=.+$' key.properties
+          grep -Eq '^storePassword=.+$' key.properties
           printf '%s' "$ANDROID_KEY_STORE" | base64 --decode > /tmp/localsend-m3e-release.jks
+          test -s /tmp/localsend-m3e-release.jks
           sed -i "s#^storeFile=.*#storeFile=/tmp/localsend-m3e-release.jks#" key.properties
 
       - name: Resolve Flutter dependencies
@@ -68,20 +71,29 @@ jobs:
         working-directory: app
         run: flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --no-pub
 
-      - name: Verify release identity and report sizes
+      - name: Verify signed release identity and report sizes
         working-directory: app
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          SIGNING_AVAILABLE: ${{ steps.signing.outputs.available }}
         run: |
-          set -e
-          echo "signing_available=$SIGNING_AVAILABLE"
+          set -euo pipefail
           AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
           test -x "$AAPT"
+          test -x "$APKSIGNER"
           for apk in \
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk; do
             test -f "$apk"
+            test ! -f "$(dirname "$apk")/base.apk"
+            verify_output=$("$APKSIGNER" verify --verbose --print-certs "$apk")
+            printf '%s\n' "$verify_output" | grep -Eq 'Verified using v[123] scheme.*: true'
+            printf '%s\n' "$verify_output" | grep -Fq 'Number of signers: 1'
+            printf '%s\n' "$verify_output" | grep -Fq 'Signer #1 certificate DN:'
+            if printf '%s\n' "$verify_output" | grep -Fq 'CN=Android Debug'; then
+              echo "Debug signing certificate found in $apk"
+              exit 1
+            fi
             "$AAPT" dump badging "$apk" | grep -F "package: name='com.localsend.m3e'"
             "$AAPT" dump badging "$apk" | grep -F "application-label:'LocalSend'"
             if "$AAPT" dump badging "$apk" | grep -Fq "org.localsend.localsend_app"; then
@@ -90,11 +102,7 @@ jobs:
             fi
             stat -c '%n %s bytes' "$apk"
           done
-          if [ "$SIGNING_AVAILABLE" = 'true' ]; then
-            echo 'Release identity and signed-artifact checks passed.'
-          else
-            echo 'Release identity and unsigned size-artifact checks passed.'
-          fi
+          echo 'Signed release identity and certificate checks passed.'
 
       - name: Upload release APKs
         uses: actions/upload-artifact@v6

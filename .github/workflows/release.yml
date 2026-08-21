@@ -46,20 +46,45 @@ jobs:
 
       - name: Copy files to env.APK_BUILD_DIR
         run: |
-          mkdir -p $APK_BUILD_DIR
-          cp -r . $APK_BUILD_DIR
+          set -euo pipefail
+          mkdir -p "$APK_BUILD_DIR"
+          cp -r . "$APK_BUILD_DIR"
+
+      - name: Require production signing credentials
+        env:
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+          ANDROID_KEY_STORE: ${{ secrets.ANDROID_KEY_STORE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEY_PROPERTIES" ] || [ -z "$ANDROID_KEY_STORE" ]; then
+            echo 'Release signing credentials are missing. Configure both ANDROID_KEY_PROPERTIES and ANDROID_KEY_STORE repository secrets before running the production release workflow.'
+            exit 1
+          fi
+          echo 'Release signing credentials are present; production signing is required.'
 
       - name: Decode key.properties file
         working-directory: ${{ env.APK_BUILD_DIR }}
         env:
           ENCODED_STRING: ${{ secrets.ANDROID_KEY_PROPERTIES }}
-        run: echo $ENCODED_STRING | base64 -di > app/android/key.properties
+        run: |
+          set -euo pipefail
+          printf '%s' "$ENCODED_STRING" | base64 --decode > app/android/key.properties
+          test -s app/android/key.properties
+          grep -Eq '^keyAlias=.+$' app/android/key.properties
+          grep -Eq '^keyPassword=.+$' app/android/key.properties
+          grep -Eq '^storePassword=.+$' app/android/key.properties
 
       - name: Decode android-keystore.jks file
         working-directory: ${{ env.APK_BUILD_DIR }}
         env:
           ENCODED_STRING: ${{ secrets.ANDROID_KEY_STORE }}
-        run: mkdir secrets && echo $ENCODED_STRING | base64 -di > secrets/android-keystore.jks
+        run: |
+          set -euo pipefail
+          mkdir -p secrets
+          printf '%s' "$ENCODED_STRING" | base64 --decode > secrets/android-keystore.jks
+          test -s secrets/android-keystore.jks
+          sed -i "s#^storeFile=.*#storeFile=$APK_BUILD_DIR/secrets/android-keystore.jks#" app/android/key.properties
+          grep -Fq "storeFile=$APK_BUILD_DIR/secrets/android-keystore.jks" app/android/key.properties
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -92,20 +117,31 @@ jobs:
         working-directory: ${{ env.APK_BUILD_DIR }}/app
         run: flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --no-pub
 
-      - name: Verify Android release APKs
+      - name: Verify signed Android release APKs
         working-directory: ${{ env.APK_BUILD_DIR }}/app
         env:
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
           EXPECTED_VERSION_CODE: ${{ needs.build.outputs.version_code }}
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
-          set -e
+          set -euo pipefail
           AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
           test -x "$AAPT"
+          test -x "$APKSIGNER"
           for apk in \
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk; do
             test -f "$apk"
+            test ! -f "$(dirname "$apk")/base.apk"
+            verify_output=$("$APKSIGNER" verify --verbose --print-certs "$apk")
+            printf '%s\n' "$verify_output" | grep -Eq 'Verified using v[123] scheme.*: true'
+            printf '%s\n' "$verify_output" | grep -Fq 'Number of signers: 1'
+            printf '%s\n' "$verify_output" | grep -Fq 'Signer #1 certificate DN:'
+            if printf '%s\n' "$verify_output" | grep -Fq 'CN=Android Debug'; then
+              echo "Debug signing certificate found in $apk"
+              exit 1
+            fi
             if [[ "$apk" == *app-armeabi-v7a-release.apk ]]; then
               EXPECTED_ABI_VERSION_CODE=$((EXPECTED_VERSION_CODE * 10 + 2))
             else
@@ -123,11 +159,13 @@ jobs:
           unzip -l build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | grep -F 'lib/arm64-v8a/'
           ! unzip -l build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/'
           stat -c '%n %s bytes' build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          echo 'Signed release APK verification passed for both ARM architectures.'
 
       - name: Upload APK
         uses: actions/upload-artifact@v6
         with:
           name: apk-result
+          if-no-files-found: error
           path: |
             ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             ${{ env.APK_BUILD_DIR }}/app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
