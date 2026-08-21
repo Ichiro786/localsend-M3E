@@ -138,10 +138,26 @@ jobs:
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk; do
             test -f "$apk"
             test ! -f "$(dirname "$apk")/base.apk"
-            verify_output=$("$APKSIGNER" verify --verbose --print-certs "$apk")
-            printf '%s\n' "$verify_output" | grep -Eq 'Verified using v[123] scheme.*: true'
-            printf '%s\n' "$verify_output" | grep -Fq 'Number of signers: 1'
-            printf '%s\n' "$verify_output" | grep -Fq 'Signer #1 certificate DN:'
+            if ! verify_output=$("$APKSIGNER" verify --verbose --print-certs "$apk" 2>&1); then
+              echo "APK signature verification command failed for $apk"
+              printf '%s\n' "$verify_output"
+              exit 1
+            fi
+            if ! printf '%s\n' "$verify_output" | grep -Eq 'Verified using v[123] scheme.*: true'; then
+              echo "No verified APK Signature Scheme v1/v2/v3 found for $apk"
+              printf '%s\n' "$verify_output"
+              exit 1
+            fi
+            if ! printf '%s\n' "$verify_output" | grep -Fq 'Number of signers: 1'; then
+              echo "Expected exactly one APK signer for $apk"
+              printf '%s\n' "$verify_output"
+              exit 1
+            fi
+            if ! printf '%s\n' "$verify_output" | grep -Fq 'Signer #1 certificate DN:'; then
+              echo "No signer certificate was reported for $apk"
+              printf '%s\n' "$verify_output"
+              exit 1
+            fi
             if printf '%s\n' "$verify_output" | grep -Fq 'CN=Android Debug'; then
               echo "Debug signing certificate found in $apk"
               exit 1
@@ -151,9 +167,18 @@ jobs:
             else
               EXPECTED_ABI_VERSION_CODE=$((EXPECTED_VERSION_CODE * 10 + 3))
             fi
-            "$AAPT" dump badging "$apk" | grep -F "package: name='com.localsend.m3e' versionCode='$EXPECTED_ABI_VERSION_CODE' versionName='$EXPECTED_VERSION'"
-            "$AAPT" dump badging "$apk" | grep -F "application-label:'LocalSend'"
-            if "$AAPT" dump badging "$apk" | grep -Fq 'org.localsend.localsend_app'; then
+            badging=$("$AAPT" dump badging "$apk")
+            if ! printf '%s\n' "$badging" | grep -Fq "package: name='com.localsend.m3e' versionCode='$EXPECTED_ABI_VERSION_CODE' versionName='$EXPECTED_VERSION'"; then
+              echo "Package/version metadata mismatch for $apk"
+              printf '%s\n' "$badging"
+              exit 1
+            fi
+            if ! printf '%s\n' "$badging" | grep -Fq "application-label:'LocalSend'"; then
+              echo "Application label mismatch for $apk"
+              printf '%s\n' "$badging"
+              exit 1
+            fi
+            if printf '%s\n' "$badging" | grep -Fq 'org.localsend.localsend_app'; then
               echo "Official package identity found in $apk"
               exit 1
             fi
