@@ -1,10 +1,13 @@
-name: Release Draft
+name: LocalSend M3E Production Release
 
 on:
   push:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   FLUTTER_VERSION: "3.41.9"
@@ -1155,3 +1158,15 @@ jobs:
           asset_path: result-cli.exe
           asset_name: LocalSend-CLI-${{ needs.build.outputs.version }}-windows-arm-64.exe
           asset_content_type: application/vnd.microsoft.portable-executable
+
+      - name: Publish verified GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -f RELEASE_NOTES_V1.0.0.md
+          gh release edit "v${{ needs.build.outputs.version }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "LocalSend M3E v${{ needs.build.outputs.version }}" \
+            --notes-file RELEASE_NOTES_V1.0.0.md \
+            --draft=false

@@ -44,7 +44,9 @@ base64 -w 0 /secure/path/localsend-m3e-release.jks
 
 ## Workflow behavior
 
-The existing production release workflow remains responsible for signed split-per-ABI release builds. It publishes only the ARM64 and ARMv7 APKs named above. The Phase 4 workflow is manually dispatched and uses the same two secrets when available. If either secret is absent, it intentionally performs an **unsigned release build for size and package-identity validation only**; that output is not a production release and must not be distributed as a signed update.
+`.github/workflows/release.yml` is the **canonical Phase 5 production release workflow**. It runs from a matching `v*.*.*` tag (or manual dispatch for maintainer-controlled testing), requires both encrypted signing secrets before any Android build, decodes them only inside the CI runner, builds only ARM64 and ARMv7 release APKs, verifies their certificates with `apksigner`, uploads the two expected APK assets, and publishes the matching GitHub Release only after all required jobs succeed.
+
+`.github/workflows/phase4-release-apk.yml` is a legacy/manual validation workflow and is not the final release mechanism. It is also fail-closed and cannot create an unsigned APK when signing credentials are missing. It must not be used instead of the canonical production workflow.
 
 The release checks verify the following conditions:
 
@@ -52,7 +54,10 @@ The release checks verify the following conditions:
 2. The visible application label is `LocalSend`.
 3. The official package identity is not present in the generated APK.
 4. The ARM64 and ARMv7 split release APKs are produced with no x86 or x86_64 libraries.
-5. Temporary signing files are removed at the end of the CI job.
+5. Each APK has exactly one verified signing certificate and is not debug-signed.
+6. No unsigned `base.apk` is accepted as a release artifact.
+7. Temporary signing files are removed at the end of the CI job.
+8. The GitHub Release is published only after both verified Android assets and all required release jobs succeed.
 
 ## Update and installation policy
 
@@ -64,4 +69,4 @@ Never commit a private keystore, signing certificate with private material, pass
 
 ## Maintainer release checklist
 
-Before publishing a signed release, confirm that the two Actions secrets are configured, the production release workflow completes successfully, the generated APKs report `com.localsend.m3e` and `LocalSend`, and the ARM64 release artifact is measured against another ARM64 **release** artifact rather than a debug build. Real-device installation and update testing remain required before public distribution.
+Before publishing a signed release, confirm that the two Actions secrets are configured, the canonical `.github/workflows/release.yml` completes successfully from the matching tag, `apksigner` verifies both APKs, the generated APKs report `com.localsend.m3e` and `LocalSend`, and the ARM64 release artifact is measured against another ARM64 **release** artifact rather than a debug build. Real-device installation, update, coexistence, and transfer testing remain required before public distribution.
