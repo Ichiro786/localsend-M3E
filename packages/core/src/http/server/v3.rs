@@ -49,7 +49,6 @@ pub(crate) async fn nonce_exchange(
     })
 }
 
-// TODO: not wired up yet
 #[allow(unused)]
 pub(crate) async fn register(
     body: Incoming,
