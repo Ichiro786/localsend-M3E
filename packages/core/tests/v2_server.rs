@@ -7,11 +7,12 @@ use localsend::http::client::{ClientError, LsHttpClientV2};
 use localsend::http::dto_v2::{PrepareUploadRequestDtoV2, RegisterDtoV2};
 use localsend::http::server::common::save::FileUploadTarget;
 use localsend::http::server::v2::{PrepareUploadDecisionV2, ServerEventV2, SessionEndReasonV2};
-use localsend::http::server::{start_with_port, ServerConfigV2};
+use localsend::http::server::{start_with_loopback, ServerConfigV2};
 use localsend::http::state::ClientInfo;
 use localsend::model::discovery::ProtocolType;
 use localsend::model::transfer::{FileDto, FileMetadata};
 use std::collections::HashMap;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -26,7 +27,28 @@ struct TestServer {
     received: Arc<Mutex<HashMap<String, Vec<u8>>>>,
     /// Ended sessions with their reasons.
     session_ends: Arc<Mutex<Vec<(String, SessionEndReasonV2)>>>,
+    /// Signals when the receiver consumer has observed the first nonempty body chunk.
+    first_bytes: Arc<Mutex<HashMap<String, oneshot::Receiver<()>>>>,
     _stop_tx: oneshot::Sender<()>,
+}
+
+impl TestServer {
+    async fn wait_for_first_bytes(&self, file_id: &str) {
+        let first_bytes = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if let Some(receiver) = self.first_bytes.lock().await.remove(file_id) {
+                    break receiver;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("server did not install first-bytes notification");
+        tokio::time::timeout(Duration::from_secs(2), first_bytes)
+            .await
+            .expect("server did not observe first body bytes")
+            .expect("server dropped first-bytes notification");
+    }
 }
 
 /// Starts a test server.
@@ -48,16 +70,36 @@ async fn start_test_server_with_verification(
     save_dir: Option<PathBuf>,
     verify_checksums: bool,
 ) -> TestServer {
+    start_test_server_with_bind_addr(
+        pin,
+        accept,
+        save_dir,
+        verify_checksums,
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+    )
+    .await
+}
+
+async fn start_test_server_with_bind_addr(
+    pin: Option<String>,
+    accept: bool,
+    save_dir: Option<PathBuf>,
+    verify_checksums: bool,
+    bind_addr: SocketAddr,
+) -> TestServer {
     let _ = tracing_subscriber::fmt().with_test_writer().try_init();
     let received: Arc<Mutex<HashMap<String, Vec<u8>>>> = Arc::new(Mutex::new(HashMap::new()));
     let session_ends: Arc<Mutex<Vec<(String, SessionEndReasonV2)>>> =
         Arc::new(Mutex::new(Vec::new()));
+    let first_bytes: Arc<Mutex<HashMap<String, oneshot::Receiver<()>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
 
     let (event_tx, mut event_rx) = mpsc::channel::<ServerEventV2>(16);
 
     tokio::spawn({
         let received = received.clone();
         let session_ends = session_ends.clone();
+        let first_bytes = first_bytes.clone();
         async move {
             while let Some(event) = event_rx.recv().await {
                 match event {
@@ -81,13 +123,24 @@ async fn start_test_server_with_verification(
                             None => {
                                 let (binary_tx, mut binary_rx) = mpsc::channel(16);
                                 let (result_tx, result_rx) = oneshot::channel();
+                                let (first_bytes_tx, first_bytes_rx) = oneshot::channel();
+                                first_bytes
+                                    .lock()
+                                    .await
+                                    .insert(file_id.clone(), first_bytes_rx);
                                 let _ = target_tx.send(FileUploadTarget::Stream {
                                     binary_tx,
                                     result_rx,
                                 });
                                 tokio::spawn(async move {
                                     let mut bytes = Vec::new();
+                                    let mut first_bytes_tx = Some(first_bytes_tx);
                                     while let Some(chunk) = binary_rx.recv().await {
+                                        if !chunk.is_empty() {
+                                            if let Some(first_bytes_tx) = first_bytes_tx.take() {
+                                                let _ = first_bytes_tx.send(());
+                                            }
+                                        }
                                         bytes.extend_from_slice(&chunk);
                                     }
                                     received.lock().await.insert(file_id, bytes);
@@ -124,9 +177,9 @@ async fn start_test_server_with_verification(
 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
 
-    // Port 0 lets the OS pick a free port, avoiding collisions between tests.
-    let handle = start_with_port(
-        0,
+    // Port 0 lets the OS pick a free loopback port, avoiding collisions between tests.
+    let handle = start_with_loopback(
+        bind_addr,
         None, // plain HTTP
         ClientInfo {
             alias: "Test Server".to_string(),
@@ -151,8 +204,68 @@ async fn start_test_server_with_verification(
         port: handle.port(),
         received,
         session_ends,
+        first_bytes,
         _stop_tx: stop_tx,
     }
+}
+
+#[tokio::test]
+async fn test_loopback_server_rejects_wildcard_and_reports_actual_loopback_bind() {
+    for bind_addr in [
+        SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+        SocketAddr::from((Ipv4Addr::new(192, 0, 2, 1), 0)),
+    ] {
+        let (rejected_stop_tx, rejected_stop_rx) = oneshot::channel();
+        let rejected = start_with_loopback(
+            bind_addr,
+            None,
+            ClientInfo {
+                alias: "Loopback test receiver".to_string(),
+                version: "2.2".to_string(),
+                device_model: None,
+                device_type: None,
+                token: "loopback-test-token".to_string(),
+            },
+            None,
+            None,
+            None,
+            rejected_stop_rx,
+        )
+        .await;
+        assert!(
+            rejected.is_err(),
+            "non-loopback bind must be rejected before listen"
+        );
+        drop(rejected_stop_tx);
+    }
+
+    let (stop_tx, stop_rx) = oneshot::channel();
+    let server = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+        None,
+        ClientInfo {
+            alias: "Loopback test receiver".to_string(),
+            version: "2.2".to_string(),
+            device_model: None,
+            device_type: None,
+            token: "loopback-test-token".to_string(),
+        },
+        None,
+        None,
+        None,
+        stop_rx,
+    )
+    .await
+    .unwrap();
+    let bound = server.bound_addresses();
+    assert_eq!(bound.len(), 1, "loopback helper must create one listener");
+    assert!(bound.iter().all(|addr| addr.ip().is_loopback()));
+    assert_eq!(bound[0].ip().to_string(), "127.0.0.1");
+    assert_eq!(bound[0].port(), server.port());
+    assert_eq!(server.local_addresses(), bound);
+
+    let _ = stop_tx.send(());
+    server.wait_stopped().await;
 }
 
 fn sender_info() -> RegisterDtoV2 {
@@ -290,7 +403,8 @@ async fn test_info_on_legacy_v1_route() {
 
 #[tokio::test]
 async fn test_register_over_ipv6() {
-    let server = start_test_server(None, true, None).await;
+    let server =
+        start_test_server_with_bind_addr(None, true, None, true, "[::1]:0".parse().unwrap()).await;
     let client = LsHttpClientV2::try_new_without_cert().unwrap();
 
     let response = client
@@ -467,6 +581,155 @@ async fn test_upload_with_matching_sha256() {
     .unwrap();
 
     assert_eq!(server.received.lock().await["file-a"], bytes);
+}
+
+#[tokio::test]
+async fn test_upload_short_and_oversized_bodies_fail_with_500() {
+    let save_dir = std::env::temp_dir().join(format!("localsend-test-{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&save_dir).await.unwrap();
+    let server = start_test_server(None, true, Some(save_dir.clone())).await;
+    let client = LsHttpClientV2::try_new_without_cert().unwrap();
+
+    let files = [
+        file_dto("short", "short.bin", 5),
+        file_dto("oversized", "oversized.bin", 5),
+    ];
+    let response = client
+        .prepare_upload(
+            ProtocolType::Http,
+            "127.0.0.1",
+            server.port,
+            None,
+            prepare_upload_request(&files),
+            None,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .response
+        .unwrap();
+
+    assert_status(
+        upload_bytes(
+            &client,
+            server.port,
+            &response.session_id,
+            "short",
+            &response.files["short"],
+            b"four",
+        )
+        .await,
+        500,
+    );
+    assert_status(
+        upload_bytes(
+            &client,
+            server.port,
+            &response.session_id,
+            "oversized",
+            &response.files["oversized"],
+            b"sixsix",
+        )
+        .await,
+        500,
+    );
+
+    tokio::fs::remove_dir_all(&save_dir).await.unwrap();
+}
+
+#[tokio::test]
+async fn test_upload_cancellation_token_aborts_active_request() {
+    const FILE_SIZE: usize = 8 * 1024 * 1024;
+    const CHUNK_SIZE: usize = 64 * 1024;
+
+    let server = start_test_server(None, true, None).await;
+    let client = Arc::new(LsHttpClientV2::try_new_without_cert().unwrap());
+    let bytes = vec![0xA5; FILE_SIZE];
+    let mut file = file_dto("cancelled", "cancelled.bin", FILE_SIZE as u64);
+    file.sha256 = Some(sha256_hex(&bytes));
+    let response = client
+        .prepare_upload(
+            ProtocolType::Http,
+            "127.0.0.1",
+            server.port,
+            None,
+            prepare_upload_request(&[file]),
+            None,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .response
+        .unwrap();
+
+    let (body_tx, body_rx) = mpsc::channel::<Bytes>(1);
+    let producer = tokio::spawn(async move {
+        for chunk in bytes.chunks(CHUNK_SIZE) {
+            if body_tx.send(Bytes::copy_from_slice(chunk)).await.is_err() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(3)).await;
+        }
+    });
+    let body = localsend::reqwest::Body::wrap_stream(
+        ReceiverStream::new(body_rx).map(|chunk| Ok::<Bytes, std::io::Error>(chunk)),
+    );
+    let cancel = CancellationToken::new();
+    let upload_task = tokio::spawn({
+        let client = client.clone();
+        let cancel = cancel.clone();
+        let port = server.port;
+        let session_id = response.session_id.clone();
+        let token = response.files["cancelled"].clone();
+        async move {
+            client
+                .upload(
+                    ProtocolType::Http,
+                    "127.0.0.1",
+                    port,
+                    None,
+                    &session_id,
+                    "cancelled",
+                    &token,
+                    body,
+                    cancel,
+                )
+                .await
+        }
+    });
+
+    server.wait_for_first_bytes("cancelled").await;
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    cancel.cancel();
+
+    let result = tokio::time::timeout(Duration::from_secs(2), upload_task)
+        .await
+        .expect("cancellation must stop the active upload promptly")
+        .expect("upload task panicked");
+    tokio::time::timeout(Duration::from_secs(2), producer)
+        .await
+        .expect("payload producer did not stop after cancellation")
+        .expect("payload producer panicked");
+    assert!(matches!(result, Err(ClientError::Cancelled)));
+
+    let received = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if let Some(bytes) = server.received.lock().await.get("cancelled").cloned() {
+                break bytes;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("server did not finish observing the cancelled upload");
+    assert!(
+        !received.is_empty(),
+        "receiver must have observed some bytes"
+    );
+    assert!(
+        received.len() < FILE_SIZE,
+        "receiver must have observed an incomplete body"
+    );
 }
 
 #[tokio::test]
@@ -958,8 +1221,8 @@ async fn test_prepare_upload_aborted_by_sender_disconnect() {
     });
 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
-    let handle = start_with_port(
-        0,
+    let handle = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         None, // plain HTTP
         ClientInfo {
             alias: "Test Server".to_string(),
@@ -1060,8 +1323,8 @@ async fn test_prepare_upload_cancelled_by_session_less_cancel() {
     });
 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
-    let handle = start_with_port(
-        0,
+    let handle = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         None, // plain HTTP
         ClientInfo {
             alias: "Test Server".to_string(),
@@ -1192,8 +1455,8 @@ async fn test_prepare_upload_aborted_by_sender_disconnect_tls() {
     });
 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
-    let handle = start_with_port(
-        0,
+    let handle = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         Some(localsend::http::server::TlsConfig {
             cert: server_cert.pem(),
             private_key: server_key.serialize_pem(),

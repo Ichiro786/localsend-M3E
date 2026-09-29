@@ -145,8 +145,9 @@ pub struct ServerHandle {
     /// The port the listeners are bound to.
     port: u16,
 
-    /// Whether the IPv6 wildcard listener could be bound.
-    ipv6_bound: bool,
+    /// The exact socket addresses the listeners are bound to, including
+    /// wildcard addresses when started with [`start_with_port`].
+    bound_addresses: Vec<SocketAddr>,
 
     /// The task running the accept loops. Completes after a stop has been
     /// requested, the listeners have been dropped and all connections have
@@ -161,30 +162,60 @@ impl ServerHandle {
         self.port
     }
 
-    /// The socket addresses this server can be reached at: every address of
-    /// the non-loopback interfaces, restricted to the address families that
-    /// are actually bound. The listeners themselves only know the wildcard
-    /// addresses, so the concrete addresses come from interface enumeration.
+    /// The exact addresses bound by this server's listener sockets.
+    ///
+    /// Unlike [`Self::local_addresses`], this does not enumerate interfaces
+    /// and may contain wildcard addresses.
+    pub fn bound_addresses(&self) -> Vec<SocketAddr> {
+        self.bound_addresses.clone()
+    }
+
+    /// The socket addresses this server can be reached at. Wildcard listeners
+    /// are expanded to non-loopback interface addresses; explicitly bound
+    /// addresses are reported as-is.
     ///
     /// Link-local IPv6 addresses are skipped: peers can only use them together
     /// with their own scope, which this device cannot know.
     ///
-    /// Empty when the interfaces cannot be enumerated.
+    /// Empty if the listeners are wildcard-bound and the interfaces cannot be
+    /// enumerated; explicit binds are returned even if enumeration fails.
     pub fn local_addresses(&self) -> Vec<SocketAddr> {
+        let mut addresses: Vec<SocketAddr> = self
+            .bound_addresses
+            .iter()
+            .filter(|address| {
+                !address.ip().is_unspecified()
+                    && !matches!(address.ip(), IpAddr::V6(ip) if ip.is_unicast_link_local())
+            })
+            .copied()
+            .collect();
+        let has_ipv4_wildcard = self
+            .bound_addresses
+            .iter()
+            .any(|address| address.is_ipv4() && address.ip().is_unspecified());
+        let has_ipv6_wildcard = self
+            .bound_addresses
+            .iter()
+            .any(|address| address.is_ipv6() && address.ip().is_unspecified());
         let Ok(interfaces) = if_addrs::get_if_addrs() else {
-            return Vec::new();
+            addresses.sort();
+            addresses.dedup();
+            return addresses;
         };
-        let mut addresses: Vec<SocketAddr> = interfaces
-            .into_iter()
-            .filter(|interface| !interface.is_loopback())
-            .filter_map(|interface| match interface.ip() {
-                IpAddr::V4(address) => Some(SocketAddr::new(address.into(), self.port)),
-                IpAddr::V6(address) if self.ipv6_bound && !address.is_unicast_link_local() => {
+        addresses.extend(interfaces.into_iter().filter_map(|interface| {
+            if interface.is_loopback() {
+                return None;
+            }
+            match interface.ip() {
+                IpAddr::V4(address) if has_ipv4_wildcard => {
                     Some(SocketAddr::new(address.into(), self.port))
                 }
-                IpAddr::V6(_) => None,
-            })
-            .collect();
+                IpAddr::V6(address) if has_ipv6_wildcard && !address.is_unicast_link_local() => {
+                    Some(SocketAddr::new(address.into(), self.port))
+                }
+                _ => None,
+            }
+        }));
         addresses.sort();
         addresses.dedup();
         addresses
@@ -223,9 +254,82 @@ impl ServerHandle {
     }
 }
 
-/// Binds the server to the specified port on both IPv4 and IPv6 addresses.
+/// Binds the server to the specified port on both IPv4 and IPv6 wildcard
+/// addresses where possible.
 pub async fn start_with_port(
     port: u16,
+    tls_config: Option<TlsConfig>,
+    info: ClientInfo,
+    internal_config: Option<InternalConfig>,
+    v2_config: Option<ServerConfigV2>,
+    web_config: Option<WebConfig>,
+    stop_rx: oneshot::Receiver<()>,
+) -> anyhow::Result<ServerHandle> {
+    let ipv4_socket_addr = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), port);
+    let ipv4_listener = tokio::net::TcpListener::bind(ipv4_socket_addr).await?;
+    // With port 0, the IPv6 listener must reuse the port the IPv4 listener got.
+    let bound_ipv4_addr = ipv4_listener.local_addr()?;
+    let bound_port = bound_ipv4_addr.port();
+    let ipv6_socket_addr = SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), bound_port);
+    let ipv6_listener = match bind_ipv6_only(ipv6_socket_addr) {
+        Ok(listener) => Some(listener),
+        Err(err) => {
+            tracing::warn!("Failed to start server on {}: {err:#}", ipv6_socket_addr);
+            None
+        }
+    };
+
+    let mut listeners = vec![(ipv4_listener, bound_ipv4_addr)];
+    if let Some(listener) = ipv6_listener {
+        let addr = listener.local_addr()?;
+        listeners.push((listener, addr));
+    }
+    start_with_listeners(
+        listeners,
+        tls_config,
+        info,
+        internal_config,
+        v2_config,
+        web_config,
+        stop_rx,
+    )
+    .await
+}
+
+/// Starts a server bound only to a loopback socket address.
+///
+/// The helper rejects wildcard and non-loopback addresses before binding. It
+/// creates exactly one listener in the requested address family; unlike
+/// [`start_with_port`], it never adds wildcard listeners on other interfaces.
+pub async fn start_with_loopback(
+    bind_addr: SocketAddr,
+    tls_config: Option<TlsConfig>,
+    info: ClientInfo,
+    internal_config: Option<InternalConfig>,
+    v2_config: Option<ServerConfigV2>,
+    web_config: Option<WebConfig>,
+    stop_rx: oneshot::Receiver<()>,
+) -> anyhow::Result<ServerHandle> {
+    anyhow::ensure!(
+        bind_addr.ip().is_loopback(),
+        "server bind address must be loopback"
+    );
+    let listener = tokio::net::TcpListener::bind(bind_addr).await?;
+    let local_addr = listener.local_addr()?;
+    start_with_listeners(
+        vec![(listener, local_addr)],
+        tls_config,
+        info,
+        internal_config,
+        v2_config,
+        web_config,
+        stop_rx,
+    )
+    .await
+}
+
+async fn start_with_listeners(
+    mut listeners: Vec<(tokio::net::TcpListener, SocketAddr)>,
     tls_config: Option<TlsConfig>,
     info: ClientInfo,
     internal_config: Option<InternalConfig>,
@@ -237,22 +341,15 @@ pub async fn start_with_port(
     // skips the install when a provider exists) does not race the accept task.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let ipv4_socket_addr = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), port);
+    let (primary_listener, primary_addr) = listeners.remove(0);
+    let secondary = listeners.pop();
+    let mut bound_addresses = vec![primary_addr];
+    if let Some((_, addr)) = &secondary {
+        bound_addresses.push(*addr);
+    }
+    let bound_port = primary_addr.port();
     let info = Arc::new(Mutex::new(info));
     let state = AppState::new(info.clone(), internal_config, v2_config, web_config);
-
-    let ipv4_listener = tokio::net::TcpListener::bind(ipv4_socket_addr).await?;
-    // With port 0, the IPv6 listener must reuse the port the IPv4 listener got.
-    let bound_port = ipv4_listener.local_addr()?.port();
-    let ipv6_socket_addr = SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), bound_port);
-    let ipv6_listener = match bind_ipv6_only(ipv6_socket_addr) {
-        Ok(listener) => Some(listener),
-        Err(err) => {
-            tracing::warn!("Failed to start server on {}: {err:#}", ipv6_socket_addr);
-            None
-        }
-    };
-    let ipv6_bound = ipv6_listener.is_some();
 
     let cancel = CancellationToken::new();
     let connections = TaskTracker::new();
@@ -261,33 +358,34 @@ pub async fn start_with_port(
         let state = state.clone();
         let cancel = cancel.clone();
         let connections = connections.clone();
-        let v2_event_tx = state.v2.as_ref().map(|v2| v2.event_tx.clone());
+        let primary_v2_event_tx = state.v2.as_ref().map(|v2| v2.event_tx.clone());
         async move {
             tokio::select! {
-                result = start_server_with_listener(ipv4_listener, tls_config.clone(), state.clone(), cancel.clone(), connections.clone()) => {
+                result = start_server_with_listener(primary_listener, tls_config.clone(), state.clone(), cancel.clone(), connections.clone()) => {
                     if let Err(err) = result {
-                        tracing::error!("Server listener failed on {}: {err:#}", ipv4_socket_addr);
+                        tracing::error!("Server listener failed on {}: {err:#}", primary_addr);
                         // Tell the application, so it can restart the server.
                         // `try_send` because this task must reach its end even
                         // when nobody consumes events anymore, so that
                         // `wait_stopped` cannot hang.
-                        if let Some(event_tx) = v2_event_tx {
+                        if let Some(event_tx) = primary_v2_event_tx {
                             let _ = event_tx.try_send(ServerEventV2::ListenerFailed {
                                 error: format!("{err:#}"),
                             });
                         }
                     }
-                    tracing::info!("Server stopped on: {}", ipv4_socket_addr);
+                    tracing::info!("Server stopped on: {}", primary_addr);
                 }
                 _ = async {
-                    if let Some(listener) = ipv6_listener {
+                    if let Some((listener, listener_addr)) = secondary {
                         if let Err(err) = start_server_with_listener(listener, tls_config, state, cancel.clone(), connections.clone()).await {
-                            tracing::error!("IPv6 server listener failed on {}: {err:#}", ipv6_socket_addr);
+                            tracing::error!("Secondary server listener failed on {}: {err:#}", listener_addr);
                         }
                     }
 
-                    // Keep the future running forever, so we continue using "ipv4 only" even if ipv6 fails.
-                    tokio::time::sleep(std::time::Duration::from_secs(u64::MAX)).await;
+                    // Keep this branch pending when no secondary listener is
+                    // present, so the primary listener remains active.
+                    std::future::pending::<()>().await;
                 } => {}
                 _ = stop_rx => {}
             }
@@ -303,7 +401,7 @@ pub async fn start_with_port(
     Ok(ServerHandle {
         v2: state.v2.clone(),
         port: bound_port,
-        ipv6_bound,
+        bound_addresses,
         task: Mutex::new(Some(task)),
     })
 }

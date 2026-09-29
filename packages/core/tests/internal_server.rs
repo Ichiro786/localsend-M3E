@@ -1,8 +1,9 @@
 #![cfg(feature = "http")]
 
 use localsend::http::server::internal::{InternalConfig, InternalEvent};
-use localsend::http::server::start_with_port;
+use localsend::http::server::start_with_loopback;
 use localsend::http::state::ClientInfo;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
@@ -35,8 +36,8 @@ async fn start_test_server(internal_enabled: bool) -> TestServer {
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
 
     // Port 0 lets the OS pick a free port, avoiding collisions between tests.
-    let handle = start_with_port(
-        0,
+    let handle = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         None,
         ClientInfo {
             alias: "Test Server".to_string(),

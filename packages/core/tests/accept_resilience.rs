@@ -10,8 +10,9 @@
 //! is the only test in this binary.
 
 use localsend::http::server::v2::ServerEventV2;
-use localsend::http::server::{start_with_port, ServerConfigV2};
+use localsend::http::server::{start_with_loopback, ServerConfigV2};
 use localsend::http::state::ClientInfo;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{mpsc, oneshot};
@@ -67,8 +68,8 @@ async fn server_survives_descriptor_exhaustion() {
     let (_stop_tx, stop_rx) = oneshot::channel();
 
     // Port 0 lets the OS pick a free port, avoiding collisions between tests.
-    let handle = start_with_port(
-        0,
+    let handle = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         None, // plain HTTP
         ClientInfo {
             alias: "Target".to_string(),

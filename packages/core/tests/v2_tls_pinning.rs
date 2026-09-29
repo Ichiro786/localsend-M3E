@@ -10,10 +10,11 @@ use localsend::http::dto_v2::{PrepareUploadRequestDtoV2, RegisterDtoV2};
 use localsend::http::server::common::save::FileUploadTarget;
 use localsend::http::server::v2::{PrepareUploadDecisionV2, ServerEventV2};
 use localsend::http::server::web::{WebConfig, WebI18n};
-use localsend::http::server::{start_with_port, ServerConfigV2, TlsConfig};
+use localsend::http::server::{start_with_loopback, ServerConfigV2, TlsConfig};
 use localsend::http::state::ClientInfo;
 use localsend::model::discovery::ProtocolType;
 use localsend::model::transfer::FileDto;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
@@ -106,8 +107,8 @@ async fn start_tls_server_with_web(identity: &Identity, web: Option<WebConfig>) 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
 
     // Port 0 lets the OS pick a free port, avoiding collisions between tests.
-    let handle = start_with_port(
-        0,
+    let handle = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         Some(TlsConfig {
             cert: identity.cert.clone(),
             private_key: identity.private_key.clone(),

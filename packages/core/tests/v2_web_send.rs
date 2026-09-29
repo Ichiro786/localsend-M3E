@@ -5,12 +5,12 @@ use localsend::http::client::{ClientError, LsHttpClientV2};
 use localsend::http::server::v2::ServerEventV2;
 use localsend::http::server::web::WebSendConfig;
 use localsend::http::server::web::{WebConfig, WebI18n, WebSendEvent};
-use localsend::http::server::{start_with_port, ServerConfigV2};
+use localsend::http::server::{start_with_loopback, ServerConfigV2};
 use localsend::http::state::ClientInfo;
 use localsend::model::discovery::ProtocolType;
 use localsend::model::transfer::{FileContent, FileDto};
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -126,8 +126,8 @@ async fn start_test_server(
     });
 
     // Port 0 lets the OS pick a free port, avoiding collisions between tests.
-    let handle = start_with_port(
-        0,
+    let handle = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         None, // plain HTTP
         ClientInfo {
             alias: "Test Server".to_string(),
@@ -296,8 +296,8 @@ async fn test_upload_page() {
     let (v2_event_tx, _v2_event_rx) = mpsc::channel::<ServerEventV2>(16);
     let (_stop_tx, stop_rx) = oneshot::channel::<()>();
 
-    let handle = start_with_port(
-        0,
+    let handle = start_with_loopback(
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         None, // plain HTTP
         ClientInfo {
             alias: "Test Server".to_string(),
