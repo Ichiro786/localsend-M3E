@@ -104,6 +104,7 @@ class _HomePageState extends State<HomePage> with Refena {
         builder: (sizingInformation) {
           return M3eExpressiveBackground(
             child: Scaffold(
+              extendBody: true,
               backgroundColor: Colors.transparent,
               body: Row(
                 children: [
