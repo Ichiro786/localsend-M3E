@@ -1,4 +1,4 @@
-import 'dart:io' show Directory, Platform;
+import 'dart:io' show Directory, FileSystemException, Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:localsend_app/util/native/channel/android_channel.dart';
@@ -28,8 +28,19 @@ Future<String> getDefaultDestinationDirectory() async {
           }
         }
       }
-      return downloadDir.path.replaceAll('\\', '/');
+      return await resolveDownloadDirectoryPath(downloadDir);
   }
+}
+
+@visibleForTesting
+Future<String> resolveDownloadDirectoryPath(Directory downloadDir) async {
+  try {
+    // Downloads may be a link, including the macOS sandbox Downloads folder.
+    return (await downloadDir.resolveSymbolicLinks()).replaceAll('\\', '/');
+  } on FileSystemException {
+    // Keep the path from the platform provider if it cannot be resolved.
+  }
+  return downloadDir.path.replaceAll('\\', '/');
 }
 
 Future<String> getCacheDirectory() async {
