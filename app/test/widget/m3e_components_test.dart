@@ -4,7 +4,7 @@ import 'package:localsend_app/config/m3e_tokens.dart';
 import 'package:localsend_app/widget/m3e/m3e_components.dart';
 
 void main() {
-  testWidgets('expressive switch exposes state and toggles through its touch target', (tester) async {
+  testWidgets('expressive switch exposes state and toggles through its 48 dp hit region', (tester) async {
     var value = false;
 
     await tester.pumpWidget(
@@ -28,6 +28,11 @@ void main() {
 
     expect(find.byIcon(Icons.close), findsOneWidget);
     expect(tester.getSize(find.byType(M3eExpressiveSwitch)).height, greaterThanOrEqualTo(48));
+    final hitBounds = tester.getRect(find.byType(InkWell));
+    final trackBounds = tester.getRect(find.byType(AnimatedContainer).first);
+    expect(hitBounds.size, const Size(52, 48));
+    expect(trackBounds.size, const Size(52, 32));
+    expect(trackBounds.top, greaterThan(hitBounds.top + 2));
     expect(
       tester.getSemantics(find.byType(M3eExpressiveSwitch)),
       matchesSemantics(
@@ -40,7 +45,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tapAt(Offset(hitBounds.center.dx, hitBounds.top + 2));
     await tester.pump(M3eTokens.shortMotion);
 
     expect(value, isTrue);

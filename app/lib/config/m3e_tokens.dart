@@ -12,6 +12,10 @@ abstract final class M3eTokens {
   static const double compactGap = 8;
   static const double standardGap = 12;
   static const double sectionGap = 18;
+  static const double settingsIconContainerSize = 44;
+  static const double settingsIconSize = 24;
+  static const double settingsRowControlMinimumSize = 48;
+  static const double settingsRowCompactBreakpoint = 360;
   // Semantic motion tokens preserve the approved Phase 2 timings while giving
   // Phase 3 interactions one shared vocabulary.
   static const Duration microMotion = Duration(milliseconds: 140);

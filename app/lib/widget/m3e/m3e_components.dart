@@ -29,40 +29,44 @@ class M3eExpressiveSwitch extends StatelessWidget {
       onTap: enabled ? () => onChanged!(!value) : null,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 52, minHeight: 48),
-        child: Center(
-          child: InkWell(
-            onTap: enabled ? () => onChanged!(!value) : null,
-            borderRadius: BorderRadius.circular(99),
-            child: AnimatedContainer(
-              duration: M3eTokens.shortMotion,
-              curve: M3eTokens.expressiveCurve,
-              width: 52,
-              height: 32,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: enabled ? trackColor : trackColor.withValues(alpha: 0.58),
-                borderRadius: BorderRadius.circular(99),
-                border: Border.all(
-                  color: value ? scheme.primary.withValues(alpha: 0.25) : scheme.outlineVariant,
-                ),
-              ),
-              child: AnimatedAlign(
+        child: InkWell(
+          onTap: enabled ? () => onChanged!(!value) : null,
+          borderRadius: BorderRadius.circular(99),
+          child: SizedBox(
+            width: 52,
+            height: 48,
+            child: Center(
+              child: AnimatedContainer(
                 duration: M3eTokens.shortMotion,
                 curve: M3eTokens.expressiveCurve,
-                alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-                child: AnimatedContainer(
+                width: 52,
+                height: 32,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: enabled ? trackColor : trackColor.withValues(alpha: 0.58),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(
+                    color: value ? scheme.primary.withValues(alpha: 0.25) : scheme.outlineVariant,
+                  ),
+                ),
+                child: AnimatedAlign(
                   duration: M3eTokens.shortMotion,
                   curve: M3eTokens.expressiveCurve,
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(color: thumbColor, shape: BoxShape.circle),
-                  child: AnimatedSwitcher(
+                  alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+                  child: AnimatedContainer(
                     duration: M3eTokens.shortMotion,
-                    child: Icon(
-                      value ? Icons.check : Icons.close,
-                      key: ValueKey(value),
-                      size: 16,
-                      color: iconColor,
+                    curve: M3eTokens.expressiveCurve,
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(color: thumbColor, shape: BoxShape.circle),
+                    child: AnimatedSwitcher(
+                      duration: M3eTokens.shortMotion,
+                      child: Icon(
+                        value ? Icons.check : Icons.close,
+                        key: ValueKey(value),
+                        size: 16,
+                        color: iconColor,
+                      ),
                     ),
                   ),
                 ),
@@ -168,6 +172,148 @@ class M3eSectionCard extends StatelessWidget {
             const SizedBox(height: 12),
             ...children,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class M3eSettingsIcon extends StatelessWidget {
+  final IconData icon;
+
+  const M3eSettingsIcon({required this.icon, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ExcludeSemantics(
+      child: SizedBox.square(
+        dimension: M3eTokens.settingsIconContainerSize,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Icon(
+              icon,
+              size: M3eTokens.settingsIconSize,
+              color: scheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A settings row with a caller-selected icon, accessible label, and trailing control.
+///
+/// The trailing slot is intentionally composable so callers can reuse existing
+/// switches, value controls, dialogs, routes, or actions without coupling this
+/// presentation primitive to settings state or localized text.
+class M3eSettingsRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? supportingText;
+  final Widget trailing;
+  final String semanticLabel;
+  final VoidCallback? onTap;
+
+  const M3eSettingsRow({
+    required this.icon,
+    required this.title,
+    required this.trailing,
+    required this.semanticLabel,
+    this.supportingText,
+    this.onTap,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final content = LayoutBuilder(
+      builder: (context, constraints) {
+        final text = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: textTheme.titleMedium),
+            if (supportingText != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                supportingText!,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        );
+        final leading = M3eSettingsIcon(icon: icon);
+        final trailingSlot = ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: M3eTokens.settingsRowControlMinimumSize,
+            minHeight: M3eTokens.settingsRowControlMinimumSize,
+          ),
+          child: trailing,
+        );
+
+        if (constraints.maxWidth < M3eTokens.settingsRowCompactBreakpoint) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  leading,
+                  const SizedBox(width: M3eTokens.standardGap),
+                  Expanded(child: text),
+                ],
+              ),
+              const SizedBox(height: M3eTokens.compactGap),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: trailingSlot,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            leading,
+            const SizedBox(width: M3eTokens.standardGap),
+            Expanded(child: text),
+            const SizedBox(width: M3eTokens.standardGap),
+            trailingSlot,
+          ],
+        );
+      },
+    );
+
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      label: semanticLabel,
+      button: onTap != null,
+      onTap: onTap,
+      child: InkWell(
+        onTap: onTap,
+        excludeFromSemantics: true,
+        borderRadius: BorderRadius.circular(M3eTokens.controlRadius),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: M3eTokens.settingsRowControlMinimumSize,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: M3eTokens.compactGap),
+            child: content,
+          ),
         ),
       ),
     );
