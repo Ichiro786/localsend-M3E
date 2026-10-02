@@ -205,7 +205,7 @@ void main() {
       );
       expect(
         (blurredSurface.decoration as BoxDecoration).color,
-        M3eTokens.elevatedSurface(scheme, opacity: 0.55),
+        M3eTokens.elevatedSurface(scheme, opacity: scheme.brightness == Brightness.dark ? 0.4 : 0.55),
       );
       final selectedPill = tester.widget<AnimatedContainer>(
         find.byKey(const ValueKey('m3e-navigation-selected-pill')),

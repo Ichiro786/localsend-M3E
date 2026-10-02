@@ -592,13 +592,20 @@ class M3eFloatingNavigationBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final motionAllowed = animationsEnabled && !MediaQuery.of(context).disableAnimations;
     final borderRadius = BorderRadius.circular(M3eTokens.navigationRadius);
+    // Translucent on purpose: the frosted blur behind the pill must stay
+    // visible. Dark themes need a lower opacity, otherwise the blur melts
+    // into the black background and the pill reads as a solid black bar.
+    final surfaceOpacity = !motionAllowed
+        ? 0.9
+        : scheme.brightness == Brightness.dark
+            ? 0.4
+            : 0.55;
     final navigationSurface = DecoratedBox(
       key: const ValueKey('m3e-floating-navigation-surface'),
       decoration: BoxDecoration(
-        // Translucent on purpose: the frosted blur behind it must stay visible.
         color: M3eTokens.elevatedSurface(
           scheme,
-          opacity: motionAllowed ? 0.55 : 0.9,
+          opacity: surfaceOpacity,
         ),
         borderRadius: borderRadius,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
