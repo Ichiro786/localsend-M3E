@@ -8,6 +8,7 @@ import 'package:localsend_app/pages/home_page_controller.dart';
 import 'package:localsend_app/pages/tabs/receive_tab.dart';
 import 'package:localsend_app/pages/tabs/send_tab.dart';
 import 'package:localsend_app/pages/tabs/settings_tab.dart';
+import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
 import 'package:localsend_app/util/native/cross_file_converters.dart';
 import 'package:localsend_app/widget/m3e/m3e_background.dart';
@@ -172,6 +173,7 @@ class _HomePageState extends State<HomePage> with Refena {
               bottomNavigationBar: sizingInformation.isMobile
                   ? M3eFloatingNavigationBar(
                       selectedIndex: vm.currentTab.index,
+                      animationsEnabled: context.watch(animationProvider),
                       destinations: HomeTab.values
                           .map(
                             (tab) => M3eNavigationDestination(

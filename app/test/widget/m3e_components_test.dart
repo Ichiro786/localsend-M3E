@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, Tristate;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsend_app/config/m3e_tokens.dart';
@@ -101,4 +103,151 @@ void main() {
       expect(safeArea.minimum, const EdgeInsets.fromLTRB(16, 8, 16, 10));
     }
   });
+
+  testWidgets('floating navigation scopes blur, retains selected semantics and touch targets', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final semantics = tester.ensureSemantics();
+    final tapped = <String>[];
+
+    try {
+      await tester.pumpWidget(
+        _navigationHost(
+          scheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.light),
+          animationsEnabled: true,
+          tapped: tapped,
+          selectedIndex: 1,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(M3eFloatingNavigationBar), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      for (final label in ['Receive', 'Send', 'Settings']) {
+        expect(find.text(label), findsOneWidget);
+        final target = find.ancestor(of: find.text(label), matching: find.byType(InkWell));
+        expect(target, findsOneWidget);
+        expect(tester.getSize(target).height, greaterThanOrEqualTo(48));
+        expect(tester.getSize(target).width, greaterThanOrEqualTo(48));
+      }
+
+      final surfaceRect = tester.getRect(find.byKey(const ValueKey('m3e-floating-navigation-surface')));
+      final clipRect = tester.getRect(find.byKey(const ValueKey('m3e-floating-navigation-clip')));
+      final filterRect = tester.getRect(find.byType(BackdropFilter));
+      expect(filterRect, surfaceRect);
+      expect(clipRect, surfaceRect);
+      expect(filterRect.width, lessThan(390));
+      expect(filterRect.height, lessThan(844 / 2));
+
+      final selectedRect = tester.getRect(find.byKey(const ValueKey('m3e-navigation-selected-pill')));
+      expect(selectedRect.top - surfaceRect.top, greaterThanOrEqualTo(10));
+      expect(surfaceRect.bottom - selectedRect.bottom, greaterThanOrEqualTo(10));
+
+      final selectedData = tester.getSemantics(find.text('Send')).getSemanticsData();
+      expect(selectedData.label, 'Send');
+      expect(selectedData.flagsCollection.isButton, isTrue);
+      expect(selectedData.flagsCollection.isSelected, Tristate.isTrue);
+      expect(selectedData.hasAction(SemanticsAction.tap), isTrue);
+
+      await tester.tap(find.text('Settings'));
+      expect(tapped, ['Settings']);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('floating navigation uses theme tones and disables blur and transitions for reduced motion', (tester) async {
+    final darkScheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark);
+    final dynamicScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple, brightness: Brightness.light);
+    final schemes = [
+      ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.light),
+      darkScheme,
+      dynamicScheme,
+      darkScheme.copyWith(surface: Colors.black),
+    ];
+
+    for (final scheme in schemes) {
+      await tester.pumpWidget(_navigationHost(scheme: scheme, animationsEnabled: true, tapped: []));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      final blurredSurface = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('m3e-floating-navigation-surface')),
+      );
+      expect(
+        (blurredSurface.decoration as BoxDecoration).color,
+        M3eTokens.elevatedSurface(scheme, opacity: 0.76),
+      );
+      final selectedPill = tester.widget<AnimatedContainer>(
+        find.byKey(const ValueKey('m3e-navigation-selected-pill')),
+      );
+      expect((selectedPill.decoration as BoxDecoration).color, scheme.primaryContainer);
+      expect(tester.widget<Text>(find.text('Send')).style?.color, scheme.onPrimaryContainer);
+      expect(tester.widget<Text>(find.text('Receive')).style?.color, scheme.onSurfaceVariant);
+
+      await tester.pumpWidget(_navigationHost(scheme: scheme, animationsEnabled: false, tapped: []));
+      expect(find.byType(BackdropFilter), findsNothing);
+      final fallbackSurface = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('m3e-floating-navigation-surface')),
+      );
+      expect(
+        (fallbackSurface.decoration as BoxDecoration).color,
+        M3eTokens.elevatedSurface(scheme, opacity: 0.94),
+      );
+      expect(
+        tester.widget<AnimatedContainer>(find.byKey(const ValueKey('m3e-navigation-selected-pill'))).duration,
+        Duration.zero,
+      );
+
+      await tester.pumpWidget(
+        _navigationHost(scheme: scheme, animationsEnabled: true, disableAnimations: true, tapped: []),
+      );
+      expect(find.byType(BackdropFilter), findsNothing);
+      expect(
+        tester.widget<AnimatedContainer>(find.byKey(const ValueKey('m3e-navigation-selected-pill'))).duration,
+        Duration.zero,
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+}
+
+Widget _navigationHost({
+  required ColorScheme scheme,
+  required bool animationsEnabled,
+  required List<String> tapped,
+  int selectedIndex = 1,
+  bool disableAnimations = false,
+}) {
+  return MaterialApp(
+    theme: ThemeData(useMaterial3: true, colorScheme: scheme),
+    builder: (context, child) {
+      final mediaQuery = MediaQuery.of(context);
+      return MediaQuery(
+        data: mediaQuery.copyWith(
+          padding: const EdgeInsets.only(bottom: 24),
+          viewPadding: const EdgeInsets.only(bottom: 24),
+          disableAnimations: disableAnimations,
+        ),
+        child: child!,
+      );
+    },
+    home: Scaffold(
+      extendBody: true,
+      backgroundColor: Colors.transparent,
+      body: const SizedBox.expand(child: ColoredBox(color: Color(0xFF00A896))),
+      bottomNavigationBar: M3eFloatingNavigationBar(
+        selectedIndex: selectedIndex,
+        animationsEnabled: animationsEnabled,
+        destinations: [
+          M3eNavigationDestination(icon: Icons.download_for_offline_outlined, label: 'Receive', onTap: () => tapped.add('Receive')),
+          M3eNavigationDestination(icon: Icons.send, label: 'Send', onTap: () => tapped.add('Send')),
+          M3eNavigationDestination(icon: Icons.settings, label: 'Settings', onTap: () => tapped.add('Settings')),
+        ],
+      ),
+    ),
+  );
 }

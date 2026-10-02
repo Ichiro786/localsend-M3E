@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:localsend_app/config/m3e_tokens.dart';
 
@@ -409,24 +411,60 @@ class M3eSelectionCard extends StatelessWidget {
 class M3eFloatingNavigationBar extends StatelessWidget {
   final int selectedIndex;
   final List<M3eNavigationDestination> destinations;
+  final bool animationsEnabled;
 
   const M3eFloatingNavigationBar({
     required this.selectedIndex,
     required this.destinations,
+    this.animationsEnabled = true,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final motionAllowed = animationsEnabled && !MediaQuery.of(context).disableAnimations;
+    final borderRadius = BorderRadius.circular(M3eTokens.navigationRadius);
+    final navigationSurface = DecoratedBox(
+      key: const ValueKey('m3e-floating-navigation-surface'),
+      decoration: BoxDecoration(
+        color: M3eTokens.elevatedSurface(scheme, opacity: motionAllowed ? 0.76 : 0.94),
+        borderRadius: borderRadius,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
+        child: Row(
+          children: [
+            for (var index = 0; index < destinations.length; index++)
+              Expanded(
+                child: _M3eNavigationDestination(
+                  destination: destinations[index],
+                  selected: index == selectedIndex,
+                  animationsEnabled: motionAllowed,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    final clippedSurface = ClipRRect(
+      key: const ValueKey('m3e-floating-navigation-clip'),
+      borderRadius: borderRadius,
+      child: motionAllowed
+          ? BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+              child: navigationSurface,
+            )
+          : navigationSurface,
+    );
+
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: M3eTokens.elevatedSurface(scheme),
-          borderRadius: BorderRadius.circular(M3eTokens.navigationRadius),
-          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+          borderRadius: borderRadius,
           boxShadow: [
             BoxShadow(
               color: scheme.shadow.withValues(alpha: 0.18),
@@ -435,20 +473,7 @@ class M3eFloatingNavigationBar extends StatelessWidget {
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: Row(
-            children: [
-              for (var index = 0; index < destinations.length; index++)
-                Expanded(
-                  child: _M3eNavigationDestination(
-                    destination: destinations[index],
-                    selected: index == selectedIndex,
-                  ),
-                ),
-            ],
-          ),
-        ),
+        child: clippedSurface,
       ),
     );
   }
@@ -469,23 +494,32 @@ class M3eNavigationDestination {
 class _M3eNavigationDestination extends StatelessWidget {
   final M3eNavigationDestination destination;
   final bool selected;
+  final bool animationsEnabled;
 
-  const _M3eNavigationDestination({required this.destination, required this.selected});
+  const _M3eNavigationDestination({
+    required this.destination,
+    required this.selected,
+    required this.animationsEnabled,
+  });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Semantics(
+      container: true,
+      excludeSemantics: true,
       selected: selected,
       button: true,
       label: destination.label,
+      onTap: destination.onTap,
       child: Tooltip(
         message: destination.label,
         child: InkWell(
           onTap: destination.onTap,
           borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
           child: AnimatedContainer(
-            duration: M3eTokens.standardMotion,
+            key: selected ? const ValueKey('m3e-navigation-selected-pill') : null,
+            duration: animationsEnabled ? M3eTokens.standardMotion : Duration.zero,
             curve: M3eTokens.expressiveCurve,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
@@ -496,7 +530,7 @@ class _M3eNavigationDestination extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedSwitcher(
-                  duration: M3eTokens.shortMotion,
+                  duration: animationsEnabled ? M3eTokens.shortMotion : Duration.zero,
                   child: Icon(
                     destination.icon,
                     key: ValueKey(selected),
