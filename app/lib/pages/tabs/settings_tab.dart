@@ -26,7 +26,6 @@ import 'package:localsend_app/widget/dialogs/quick_save_from_favorites_notice.da
 import 'package:localsend_app/widget/dialogs/quick_save_notice.dart';
 import 'package:localsend_app/widget/dialogs/text_field_tv.dart';
 import 'package:localsend_app/widget/dialogs/text_field_with_actions.dart';
-import 'package:localsend_app/widget/labeled_checkbox.dart';
 import 'package:localsend_app/widget/local_send_logo.dart';
 import 'package:localsend_app/widget/m3e/m3e_components.dart';
 import 'package:localsend_app/widget/responsive_list_view.dart';
@@ -60,65 +59,101 @@ class SettingsTab extends StatelessWidget {
             _SettingsSection(
               title: t.settingsTab.general.title,
               children: [
-                _SettingsEntry(
-                  label: t.settingsTab.general.brightness,
-                  child: CustomDropdownButton<ThemeMode>(
-                    value: vm.settings.theme,
-                    items: vm.themeModes.map((theme) {
-                      return DropdownMenuItem(
-                        value: theme,
-                        alignment: Alignment.center,
-                        child: Text(theme.humanName),
-                      );
-                    }).toList(),
-                    onChanged: (theme) => vm.onChangeTheme(context, theme),
+                M3eSettingsRow(
+                  icon: Icons.dark_mode_outlined,
+                  title: t.settingsTab.general.brightness,
+                  semanticLabel: t.settingsTab.general.brightness,
+                  trailing: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: CustomDropdownButton<ThemeMode>(
+                      value: vm.settings.theme,
+                      expanded: true,
+                      items: vm.themeModes.map((theme) {
+                        return DropdownMenuItem(
+                          value: theme,
+                          alignment: Alignment.center,
+                          child: Text(theme.humanName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (theme) => vm.onChangeTheme(context, theme),
+                    ),
                   ),
                 ),
-                _SettingsEntry(
-                  label: t.settingsTab.general.color,
-                  child: CustomDropdownButton<ColorMode>(
-                    value: vm.settings.colorMode,
-                    items: vm.colorModes.map((colorMode) {
-                      return DropdownMenuItem(
-                        value: colorMode,
-                        alignment: Alignment.center,
-                        child: Text(colorMode.humanName, overflow: TextOverflow.ellipsis),
-                      );
-                    }).toList(),
-                    onChanged: (colorMode) => vm.onChangeColorMode(context, colorMode),
+                M3eSettingsRow(
+                  icon: Icons.palette_outlined,
+                  title: t.settingsTab.general.color,
+                  semanticLabel: t.settingsTab.general.color,
+                  trailing: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: CustomDropdownButton<ColorMode>(
+                      value: vm.settings.colorMode,
+                      expanded: true,
+                      items: vm.colorModes.map((colorMode) {
+                        return DropdownMenuItem(
+                          value: colorMode,
+                          alignment: Alignment.center,
+                          child: Text(colorMode.humanName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (colorMode) => vm.onChangeColorMode(context, colorMode),
+                    ),
                   ),
                 ),
-                _ButtonEntry(
-                  label: t.settingsTab.general.language,
-                  buttonLabel: vm.settings.locale?.getLocaleName() ?? t.settingsTab.general.languageOptions.system,
+                M3eSettingsRow(
+                  icon: Icons.language,
+                  title: t.settingsTab.general.language,
+                  semanticLabel:
+                      '${t.settingsTab.general.language}, ${vm.settings.locale?.getLocaleName() ?? t.settingsTab.general.languageOptions.system}',
+                  trailing: _settingsActionValue(
+                    context,
+                    vm.settings.locale?.getLocaleName() ?? t.settingsTab.general.languageOptions.system,
+                  ),
                   onTap: () => vm.onTapLanguage(context),
                 ),
                 if (checkPlatformIsDesktop()) ...[
                   /// Wayland does window position handling, so there's no need for it. See [https://github.com/localsend/localsend/issues/544]
                   if (vm.advanced && checkPlatformIsNotWaylandDesktop())
-                    _BooleanEntry(
-                      label: defaultTargetPlatform == TargetPlatform.windows
+                    M3eSettingsRow(
+                      icon: Icons.window_outlined,
+                      title: defaultTargetPlatform == TargetPlatform.windows
                           ? t.settingsTab.general.saveWindowPlacementWindows
                           : t.settingsTab.general.saveWindowPlacement,
-                      value: vm.settings.saveWindowPlacement,
-                      onChanged: (b) async {
-                        await ref.notifier(settingsProvider).setSaveWindowPlacement(b);
-                      },
+                      semanticLabel: defaultTargetPlatform == TargetPlatform.windows
+                          ? t.settingsTab.general.saveWindowPlacementWindows
+                          : t.settingsTab.general.saveWindowPlacement,
+                      trailing: M3eExpressiveSwitch(
+                        value: vm.settings.saveWindowPlacement,
+                        onChanged: (b) async {
+                          await ref.notifier(settingsProvider).setSaveWindowPlacement(b);
+                        },
+                        semanticLabel:
+                            '${defaultTargetPlatform == TargetPlatform.windows ? t.settingsTab.general.saveWindowPlacementWindows : t.settingsTab.general.saveWindowPlacement}, ${vm.settings.saveWindowPlacement ? t.general.on : t.general.off}',
+                      ),
                     ),
                   if (checkPlatformHasTray()) ...[
-                    _BooleanEntry(
-                      label: t.settingsTab.general.minimizeToTray,
-                      value: vm.settings.minimizeToTray,
-                      onChanged: (b) async {
-                        await ref.notifier(settingsProvider).setMinimizeToTray(b);
-                      },
+                    M3eSettingsRow(
+                      icon: Icons.vertical_align_bottom,
+                      title: t.settingsTab.general.minimizeToTray,
+                      semanticLabel: t.settingsTab.general.minimizeToTray,
+                      trailing: M3eExpressiveSwitch(
+                        value: vm.settings.minimizeToTray,
+                        onChanged: (b) async {
+                          await ref.notifier(settingsProvider).setMinimizeToTray(b);
+                        },
+                        semanticLabel: '${t.settingsTab.general.minimizeToTray}, ${vm.settings.minimizeToTray ? t.general.on : t.general.off}',
+                      ),
                     ),
                   ],
                   if (checkPlatformIsDesktop()) ...[
-                    _BooleanEntry(
-                      label: t.settingsTab.general.launchAtStartup,
-                      value: vm.autoStart,
-                      onChanged: (_) => vm.onToggleAutoStart(context),
+                    M3eSettingsRow(
+                      icon: Icons.power_settings_new,
+                      title: t.settingsTab.general.launchAtStartup,
+                      semanticLabel: t.settingsTab.general.launchAtStartup,
+                      trailing: M3eExpressiveSwitch(
+                        value: vm.autoStart,
+                        onChanged: (_) => vm.onToggleAutoStart(context),
+                        semanticLabel: '${t.settingsTab.general.launchAtStartup}, ${vm.autoStart ? t.general.on : t.general.off}',
+                      ),
                     ),
                     Visibility(
                       visible: vm.autoStart,
@@ -127,155 +162,201 @@ class SettingsTab extends StatelessWidget {
                       child: AnimatedOpacity(
                         opacity: vm.autoStart ? 1.0 : 0.0,
                         duration: const Duration(milliseconds: 500),
-                        child: _BooleanEntry(
-                          label: t.settingsTab.general.launchMinimized,
-                          value: vm.autoStartLaunchHidden,
-                          onChanged: (_) => vm.onToggleAutoStartLaunchHidden(context),
+                        child: M3eSettingsRow(
+                          icon: Icons.minimize,
+                          title: t.settingsTab.general.launchMinimized,
+                          semanticLabel: t.settingsTab.general.launchMinimized,
+                          trailing: M3eExpressiveSwitch(
+                            value: vm.autoStartLaunchHidden,
+                            onChanged: (_) => vm.onToggleAutoStartLaunchHidden(context),
+                            semanticLabel: '${t.settingsTab.general.launchMinimized}, ${vm.autoStartLaunchHidden ? t.general.on : t.general.off}',
+                          ),
                         ),
                       ),
                     ),
                   ],
                   if (vm.advanced && checkPlatform([TargetPlatform.windows])) ...[
-                    _BooleanEntry(
-                      label: t.settingsTab.general.showInContextMenu,
-                      value: vm.showInContextMenu,
-                      onChanged: (_) => vm.onToggleShowInContextMenu(context),
+                    M3eSettingsRow(
+                      icon: Icons.more_horiz,
+                      title: t.settingsTab.general.showInContextMenu,
+                      semanticLabel: t.settingsTab.general.showInContextMenu,
+                      trailing: M3eExpressiveSwitch(
+                        value: vm.showInContextMenu,
+                        onChanged: (_) => vm.onToggleShowInContextMenu(context),
+                        semanticLabel: '${t.settingsTab.general.showInContextMenu}, ${vm.showInContextMenu ? t.general.on : t.general.off}',
+                      ),
                     ),
                   ],
                 ],
-                _BooleanEntry(
-                  label: t.settingsTab.general.animations,
-                  value: vm.settings.enableAnimations,
-                  onChanged: (b) async {
-                    await ref.notifier(settingsProvider).setEnableAnimations(b);
-                  },
+                M3eSettingsRow(
+                  icon: Icons.animation_outlined,
+                  title: t.settingsTab.general.animations,
+                  semanticLabel: t.settingsTab.general.animations,
+                  trailing: M3eExpressiveSwitch(
+                    value: vm.settings.enableAnimations,
+                    onChanged: (b) async {
+                      await ref.notifier(settingsProvider).setEnableAnimations(b);
+                    },
+                    semanticLabel: '${t.settingsTab.general.animations}, ${vm.settings.enableAnimations ? t.general.on : t.general.off}',
+                  ),
                 ),
               ],
             ),
             _SettingsSection(
               title: t.settingsTab.receive.title,
               children: [
-                _BooleanEntry(
-                  label: t.settingsTab.receive.quickSave,
-                  value: vm.settings.quickSave,
-                  onChanged: (b) async {
-                    final old = vm.settings.quickSave;
-                    await ref.notifier(settingsProvider).setQuickSave(b);
-                    if (b) {
-                      await ref.notifier(settingsProvider).setQuickSaveFromFavorites(false);
-                    }
-                    if (!old && b && context.mounted) {
-                      await QuickSaveNotice.open(context);
-                    }
-                  },
-                ),
-                _BooleanEntry(
-                  label: t.settingsTab.receive.quickSaveFromFavorites,
-                  value: vm.settings.quickSaveFromFavorites,
-                  onChanged: (b) async {
-                    final old = vm.settings.quickSaveFromFavorites;
-                    await ref.notifier(settingsProvider).setQuickSaveFromFavorites(b);
-                    if (b) {
-                      await ref.notifier(settingsProvider).setQuickSave(false);
-                    }
-                    if (!old && b && context.mounted) {
-                      await QuickSaveFromFavoritesNotice.open(context);
-                    }
-                  },
-                ),
-                _BooleanEntry(
-                  label: t.settingsTab.receive.requirePin,
-                  value: vm.settings.receivePin != null,
-                  onChanged: (b) async {
-                    final currentPIN = vm.settings.receivePin;
-                    if (currentPIN != null) {
-                      await ref.notifier(settingsProvider).setReceivePin(null);
-                    } else {
-                      final String? newPin = await showDialog<String>(
-                        context: context,
-                        builder: (_) => const PinDialog(
-                          obscureText: false,
-                          generateRandom: false,
-                        ),
-                      );
-
-                      if (newPin != null && newPin.isNotEmpty) {
-                        await ref.notifier(settingsProvider).setReceivePin(newPin);
+                M3eSettingsRow(
+                  icon: Icons.download_outlined,
+                  title: t.settingsTab.receive.quickSave,
+                  semanticLabel: t.settingsTab.receive.quickSave,
+                  trailing: M3eExpressiveSwitch(
+                    value: vm.settings.quickSave,
+                    onChanged: (b) async {
+                      final old = vm.settings.quickSave;
+                      await ref.notifier(settingsProvider).setQuickSave(b);
+                      if (b) {
+                        await ref.notifier(settingsProvider).setQuickSaveFromFavorites(false);
                       }
-                    }
-
-                    // The pin is enforced by the Rust server, so it needs a restart.
-                    if (ref.read(serverProvider) != null) {
-                      await ref.notifier(serverProvider).restartServerFromSettings();
-                    }
-                  },
-                ),
-                if (checkPlatformWithFileSystem())
-                  _SettingsEntry(
-                    label: t.settingsTab.receive.destination,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        backgroundColor: Theme.of(context).inputDecorationTheme.fillColor,
-                        shape: RoundedRectangleBorder(borderRadius: Theme.of(context).inputDecorationTheme.borderRadius),
-                        foregroundColor: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      onPressed: () async {
-                        if (vm.settings.destination != null) {
-                          await ref.notifier(settingsProvider).setDestination(null);
-                          if (defaultTargetPlatform == TargetPlatform.macOS) {
-                            await removeExistingDestinationAccess();
-                          }
-                          return;
-                        }
-
-                        final directory = await pickDirectoryPath();
-                        if (directory != null) {
-                          if (defaultTargetPlatform == TargetPlatform.macOS) {
-                            await persistDestinationFolderAccess(directory);
-                          }
-                          await ref.notifier(settingsProvider).setDestination(directory);
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        child: Text(vm.settings.destination ?? t.settingsTab.receive.downloads, style: Theme.of(context).textTheme.titleMedium),
-                      ),
-                    ),
-                  ),
-                if (checkPlatformWithGallery())
-                  _BooleanEntry(
-                    label: t.settingsTab.receive.saveToGallery,
-                    value: vm.settings.saveToGallery,
-                    onChanged: (b) async {
-                      await ref.notifier(settingsProvider).setSaveToGallery(b);
+                      if (!old && b && context.mounted) {
+                        await QuickSaveNotice.open(context);
+                      }
                     },
+                    semanticLabel: '${t.settingsTab.receive.quickSave}, ${vm.settings.quickSave ? t.general.on : t.general.off}',
                   ),
-                _BooleanEntry(
-                  label: t.settingsTab.receive.autoFinish,
-                  value: vm.settings.autoFinish,
-                  onChanged: (b) async {
-                    await ref.notifier(settingsProvider).setAutoFinish(b);
-                  },
                 ),
-                _BooleanEntry(
-                  label: t.settingsTab.receive.saveToHistory,
-                  value: vm.settings.saveToHistory,
-                  onChanged: (b) async {
-                    await ref.notifier(settingsProvider).setSaveToHistory(b);
-                  },
-                ),
-                if (vm.advanced)
-                  _BooleanEntry(
-                    label: t.settingsTab.receive.verifyChecksums,
-                    value: vm.settings.verifyChecksums,
+                M3eSettingsRow(
+                  icon: Icons.favorite_border,
+                  title: t.settingsTab.receive.quickSaveFromFavorites,
+                  semanticLabel: t.settingsTab.receive.quickSaveFromFavorites,
+                  trailing: M3eExpressiveSwitch(
+                    value: vm.settings.quickSaveFromFavorites,
                     onChanged: (b) async {
-                      await ref.notifier(settingsProvider).setVerifyChecksums(b);
+                      final old = vm.settings.quickSaveFromFavorites;
+                      await ref.notifier(settingsProvider).setQuickSaveFromFavorites(b);
+                      if (b) {
+                        await ref.notifier(settingsProvider).setQuickSave(false);
+                      }
+                      if (!old && b && context.mounted) {
+                        await QuickSaveFromFavoritesNotice.open(context);
+                      }
+                    },
+                    semanticLabel:
+                        '${t.settingsTab.receive.quickSaveFromFavorites}, ${vm.settings.quickSaveFromFavorites ? t.general.on : t.general.off}',
+                  ),
+                ),
+                M3eSettingsRow(
+                  icon: Icons.lock_outline,
+                  title: t.settingsTab.receive.requirePin,
+                  semanticLabel: t.settingsTab.receive.requirePin,
+                  trailing: M3eExpressiveSwitch(
+                    value: vm.settings.receivePin != null,
+                    onChanged: (b) async {
+                      final currentPIN = vm.settings.receivePin;
+                      if (currentPIN != null) {
+                        await ref.notifier(settingsProvider).setReceivePin(null);
+                      } else {
+                        final String? newPin = await showDialog<String>(
+                          context: context,
+                          builder: (_) => const PinDialog(
+                            obscureText: false,
+                            generateRandom: false,
+                          ),
+                        );
 
-                      // The checksums are verified by the Rust server, so it needs a restart.
+                        if (newPin != null && newPin.isNotEmpty) {
+                          await ref.notifier(settingsProvider).setReceivePin(newPin);
+                        }
+                      }
+
+                      // The pin is enforced by the Rust server, so it needs a restart.
                       if (ref.read(serverProvider) != null) {
                         await ref.notifier(serverProvider).restartServerFromSettings();
                       }
                     },
+                    semanticLabel: '${t.settingsTab.receive.requirePin}, ${vm.settings.receivePin == null ? t.general.off : t.general.on}',
+                  ),
+                ),
+                if (checkPlatformWithFileSystem())
+                  M3eSettingsRow(
+                    icon: Icons.folder_open_outlined,
+                    title: t.settingsTab.receive.destination,
+                    semanticLabel: '${t.settingsTab.receive.destination}, ${vm.settings.destination ?? t.settingsTab.receive.downloads}',
+                    trailing: _settingsActionValue(
+                      context,
+                      vm.settings.destination ?? t.settingsTab.receive.downloads,
+                    ),
+                    onTap: () async {
+                      if (vm.settings.destination != null) {
+                        await ref.notifier(settingsProvider).setDestination(null);
+                        if (defaultTargetPlatform == TargetPlatform.macOS) {
+                          await removeExistingDestinationAccess();
+                        }
+                        return;
+                      }
+
+                      final directory = await pickDirectoryPath();
+                      if (directory != null) {
+                        if (defaultTargetPlatform == TargetPlatform.macOS) {
+                          await persistDestinationFolderAccess(directory);
+                        }
+                        await ref.notifier(settingsProvider).setDestination(directory);
+                      }
+                    },
+                  ),
+                if (checkPlatformWithGallery())
+                  M3eSettingsRow(
+                    icon: Icons.photo_library_outlined,
+                    title: t.settingsTab.receive.saveToGallery,
+                    semanticLabel: t.settingsTab.receive.saveToGallery,
+                    trailing: M3eExpressiveSwitch(
+                      value: vm.settings.saveToGallery,
+                      onChanged: (b) async {
+                        await ref.notifier(settingsProvider).setSaveToGallery(b);
+                      },
+                      semanticLabel: '${t.settingsTab.receive.saveToGallery}, ${vm.settings.saveToGallery ? t.general.on : t.general.off}',
+                    ),
+                  ),
+                M3eSettingsRow(
+                  icon: Icons.done_all,
+                  title: t.settingsTab.receive.autoFinish,
+                  semanticLabel: t.settingsTab.receive.autoFinish,
+                  trailing: M3eExpressiveSwitch(
+                    value: vm.settings.autoFinish,
+                    onChanged: (b) async {
+                      await ref.notifier(settingsProvider).setAutoFinish(b);
+                    },
+                    semanticLabel: '${t.settingsTab.receive.autoFinish}, ${vm.settings.autoFinish ? t.general.on : t.general.off}',
+                  ),
+                ),
+                M3eSettingsRow(
+                  icon: Icons.history,
+                  title: t.settingsTab.receive.saveToHistory,
+                  semanticLabel: t.settingsTab.receive.saveToHistory,
+                  trailing: M3eExpressiveSwitch(
+                    value: vm.settings.saveToHistory,
+                    onChanged: (b) async {
+                      await ref.notifier(settingsProvider).setSaveToHistory(b);
+                    },
+                    semanticLabel: '${t.settingsTab.receive.saveToHistory}, ${vm.settings.saveToHistory ? t.general.on : t.general.off}',
+                  ),
+                ),
+                if (vm.advanced)
+                  M3eSettingsRow(
+                    icon: Icons.verified_outlined,
+                    title: t.settingsTab.receive.verifyChecksums,
+                    semanticLabel: t.settingsTab.receive.verifyChecksums,
+                    trailing: M3eExpressiveSwitch(
+                      value: vm.settings.verifyChecksums,
+                      onChanged: (b) async {
+                        await ref.notifier(settingsProvider).setVerifyChecksums(b);
+
+                        // The checksums are verified by the Rust server, so it needs a restart.
+                        if (ref.read(serverProvider) != null) {
+                          await ref.notifier(serverProvider).restartServerFromSettings();
+                        }
+                      },
+                      semanticLabel: '${t.settingsTab.receive.verifyChecksums}, ${vm.settings.verifyChecksums ? t.general.on : t.general.off}',
+                    ),
                   ),
               ],
             ),
@@ -283,19 +364,30 @@ class SettingsTab extends StatelessWidget {
               _SettingsSection(
                 title: t.settingsTab.send.title,
                 children: [
-                  _BooleanEntry(
-                    label: t.settingsTab.send.shareViaLinkAutoAccept,
-                    value: vm.settings.shareViaLinkAutoAccept,
-                    onChanged: (b) async {
-                      await ref.notifier(settingsProvider).setShareViaLinkAutoAccept(b);
-                    },
+                  M3eSettingsRow(
+                    icon: Icons.link,
+                    title: t.settingsTab.send.shareViaLinkAutoAccept,
+                    semanticLabel: t.settingsTab.send.shareViaLinkAutoAccept,
+                    trailing: M3eExpressiveSwitch(
+                      value: vm.settings.shareViaLinkAutoAccept,
+                      onChanged: (b) async {
+                        await ref.notifier(settingsProvider).setShareViaLinkAutoAccept(b);
+                      },
+                      semanticLabel:
+                          '${t.settingsTab.send.shareViaLinkAutoAccept}, ${vm.settings.shareViaLinkAutoAccept ? t.general.on : t.general.off}',
+                    ),
                   ),
-                  _BooleanEntry(
-                    label: t.settingsTab.send.createChecksums,
-                    value: vm.settings.createChecksums,
-                    onChanged: (b) async {
-                      await ref.notifier(settingsProvider).setCreateChecksums(b);
-                    },
+                  M3eSettingsRow(
+                    icon: Icons.fingerprint,
+                    title: t.settingsTab.send.createChecksums,
+                    semanticLabel: t.settingsTab.send.createChecksums,
+                    trailing: M3eExpressiveSwitch(
+                      value: vm.settings.createChecksums,
+                      onChanged: (b) async {
+                        await ref.notifier(settingsProvider).setCreateChecksums(b);
+                      },
+                      semanticLabel: '${t.settingsTab.send.createChecksums}, ${vm.settings.createChecksums ? t.general.on : t.general.off}',
+                    ),
                   ),
                 ],
               ),
@@ -318,97 +410,104 @@ class SettingsTab extends StatelessWidget {
                     child: Text(t.settingsTab.network.needRestart, style: TextStyle(color: Theme.of(context).colorScheme.warning)),
                   ),
                 ),
-                _SettingsEntry(
-                  label: '${t.settingsTab.network.server}${vm.serverState == null ? ' (${t.general.offline})' : ''}',
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).inputDecorationTheme.fillColor,
-                      borderRadius: Theme.of(context).inputDecorationTheme.borderRadius,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        if (vm.serverState == null)
-                          Tooltip(
-                            message: t.general.start,
-                            child: TextButton(
-                              style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface, iconSize: 24),
-                              onPressed: () => vm.onTapStartServer(context),
-                              child: const Icon(Icons.play_arrow),
-                            ),
-                          )
-                        else
-                          Tooltip(
-                            message: t.general.restart,
-                            child: TextButton(
-                              style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface, iconSize: 24),
-                              onPressed: () => vm.onTapRestartServer(context),
-                              child: const Icon(Icons.refresh),
-                            ),
-                          ),
+                M3eSettingsRow(
+                  icon: Icons.dns_outlined,
+                  title: '${t.settingsTab.network.server}${vm.serverState == null ? ' (${t.general.offline})' : ''}',
+                  semanticLabel: '${t.settingsTab.network.server}${vm.serverState == null ? ' (${t.general.offline})' : ''}',
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (vm.serverState == null)
                         Tooltip(
-                          message: t.general.stop,
-                          child: TextButton(
-                            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface, iconSize: 24),
-                            onPressed: vm.serverState == null ? null : vm.onTapStopServer,
-                            child: const Icon(Icons.stop),
+                          message: t.general.start,
+                          child: IconButton(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            iconSize: 24,
+                            onPressed: () => vm.onTapStartServer(context),
+                            icon: const Icon(Icons.play_arrow),
+                          ),
+                        )
+                      else
+                        Tooltip(
+                          message: t.general.restart,
+                          child: IconButton(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            iconSize: 24,
+                            onPressed: () => vm.onTapRestartServer(context),
+                            icon: const Icon(Icons.refresh),
+                          ),
+                        ),
+                      Tooltip(
+                        message: t.general.stop,
+                        child: IconButton(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          iconSize: 24,
+                          onPressed: vm.serverState == null ? null : vm.onTapStopServer,
+                          icon: const Icon(Icons.stop),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                M3eSettingsRow(
+                  icon: Icons.badge_outlined,
+                  title: t.settingsTab.network.alias,
+                  semanticLabel: t.settingsTab.network.alias,
+                  trailing: SizedBox(
+                    width: 220,
+                    child: TextFieldWithActions(
+                      name: t.settingsTab.network.alias,
+                      controller: vm.aliasController,
+                      onChanged: (s) async {
+                        await ref.notifier(settingsProvider).setAlias(s);
+                      },
+                      actions: [
+                        Tooltip(
+                          message: t.settingsTab.network.generateRandomAlias,
+                          child: IconButton(
+                            onPressed: () async {
+                              // Generates random alias
+                              final newAlias = generateRandomAlias();
+
+                              // Update the TextField with the new alias
+                              vm.aliasController.text = newAlias;
+
+                              // Persist the new alias using the settingsProvider
+                              await ref.notifier(settingsProvider).setAlias(newAlias);
+                            },
+                            icon: const Icon(Icons.casino),
+                          ),
+                        ),
+                        Tooltip(
+                          message: t.settingsTab.network.useSystemName,
+                          child: IconButton(
+                            onPressed: () async {
+                              final String newAlias;
+                              if (Platform.isMacOS) {
+                                final result = await Process.run('scutil', ['--get', 'ComputerName']);
+                                newAlias = result.stdout.toString().trim();
+                              } else {
+                                newAlias = Platform.localHostname;
+                              }
+
+                              vm.aliasController.text = newAlias;
+                              await ref.notifier(settingsProvider).setAlias(newAlias);
+                            },
+                            icon: const Icon(Icons.desktop_windows_rounded),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                _SettingsEntry(
-                  label: t.settingsTab.network.alias,
-                  child: TextFieldWithActions(
-                    name: t.settingsTab.network.alias,
-                    controller: vm.aliasController,
-                    onChanged: (s) async {
-                      await ref.notifier(settingsProvider).setAlias(s);
-                    },
-                    actions: [
-                      Tooltip(
-                        message: t.settingsTab.network.generateRandomAlias,
-                        child: IconButton(
-                          onPressed: () async {
-                            // Generates random alias
-                            final newAlias = generateRandomAlias();
-
-                            // Update the TextField with the new alias
-                            vm.aliasController.text = newAlias;
-
-                            // Persist the new alias using the settingsProvider
-                            await ref.notifier(settingsProvider).setAlias(newAlias);
-                          },
-                          icon: const Icon(Icons.casino),
-                        ),
-                      ),
-                      Tooltip(
-                        message: t.settingsTab.network.useSystemName,
-                        child: IconButton(
-                          onPressed: () async {
-                            final String newAlias;
-                            if (Platform.isMacOS) {
-                              final result = await Process.run('scutil', ['--get', 'ComputerName']);
-                              newAlias = result.stdout.toString().trim();
-                            } else {
-                              newAlias = Platform.localHostname;
-                            }
-
-                            vm.aliasController.text = newAlias;
-                            await ref.notifier(settingsProvider).setAlias(newAlias);
-                          },
-                          icon: const Icon(Icons.desktop_windows_rounded),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 if (vm.advanced)
-                  _SettingsEntry(
-                    label: t.settingsTab.network.deviceType,
-                    child: CustomDropdownButton<DeviceType>(
+                  M3eSettingsRow(
+                    icon: Icons.devices_outlined,
+                    title: t.settingsTab.network.deviceType,
+                    semanticLabel: t.settingsTab.network.deviceType,
+                    trailing: CustomDropdownButton<DeviceType>(
                       value: vm.deviceInfo.deviceType,
+                      expanded: false,
                       items: DeviceType.values.map((type) {
                         return DropdownMenuItem(
                           value: type,
@@ -422,76 +521,106 @@ class SettingsTab extends StatelessWidget {
                     ),
                   ),
                 if (vm.advanced)
-                  _SettingsEntry(
-                    label: t.settingsTab.network.deviceModel,
-                    child: TextFieldTv(
-                      name: t.settingsTab.network.deviceModel,
-                      controller: vm.deviceModelController,
-                      onChanged: (s) async {
-                        await ref.notifier(settingsProvider).setDeviceModel(s);
-                      },
+                  M3eSettingsRow(
+                    icon: Icons.smartphone,
+                    title: t.settingsTab.network.deviceModel,
+                    semanticLabel: t.settingsTab.network.deviceModel,
+                    trailing: SizedBox(
+                      width: 220,
+                      child: TextFieldTv(
+                        name: t.settingsTab.network.deviceModel,
+                        controller: vm.deviceModelController,
+                        onChanged: (s) async {
+                          await ref.notifier(settingsProvider).setDeviceModel(s);
+                        },
+                      ),
                     ),
                   ),
                 if (vm.advanced)
-                  _SettingsEntry(
-                    label: t.settingsTab.network.port,
-                    child: TextFieldTv(
-                      name: t.settingsTab.network.port,
-                      controller: vm.portController,
-                      onChanged: (s) async {
-                        final port = int.tryParse(s);
-                        if (port != null) {
-                          await ref.notifier(settingsProvider).setPort(port);
-                        }
-                      },
+                  M3eSettingsRow(
+                    icon: Icons.numbers,
+                    title: t.settingsTab.network.port,
+                    semanticLabel: t.settingsTab.network.port,
+                    trailing: SizedBox(
+                      width: 160,
+                      child: TextFieldTv(
+                        name: t.settingsTab.network.port,
+                        controller: vm.portController,
+                        onChanged: (s) async {
+                          final port = int.tryParse(s);
+                          if (port != null) {
+                            await ref.notifier(settingsProvider).setPort(port);
+                          }
+                        },
+                      ),
                     ),
                   ),
                 if (vm.advanced)
-                  _ButtonEntry(
-                    label: t.settingsTab.network.network,
-                    buttonLabel: switch (vm.settings.networkWhitelist != null || vm.settings.networkBlacklist != null) {
-                      true => t.settingsTab.network.networkOptions.filtered,
-                      false => t.settingsTab.network.networkOptions.all,
-                    },
+                  M3eSettingsRow(
+                    icon: Icons.wifi_tethering_outlined,
+                    title: t.settingsTab.network.network,
+                    semanticLabel: t.settingsTab.network.network,
+                    trailing: _settingsActionValue(
+                      context,
+                      switch (vm.settings.networkWhitelist != null || vm.settings.networkBlacklist != null) {
+                        true => t.settingsTab.network.networkOptions.filtered,
+                        false => t.settingsTab.network.networkOptions.all,
+                      },
+                    ),
                     onTap: () async {
                       await context.push(() => const NetworkInterfacesPage());
                     },
                   ),
                 if (vm.advanced)
-                  _SettingsEntry(
-                    label: t.settingsTab.network.discoveryTimeout,
-                    child: TextFieldTv(
-                      name: t.settingsTab.network.discoveryTimeout,
-                      controller: vm.timeoutController,
-                      onChanged: (s) async {
-                        final timeout = int.tryParse(s);
-                        if (timeout != null) {
-                          await ref.notifier(settingsProvider).setDiscoveryTimeout(timeout);
-                        }
-                      },
+                  M3eSettingsRow(
+                    icon: Icons.timer_outlined,
+                    title: t.settingsTab.network.discoveryTimeout,
+                    semanticLabel: t.settingsTab.network.discoveryTimeout,
+                    trailing: SizedBox(
+                      width: 160,
+                      child: TextFieldTv(
+                        name: t.settingsTab.network.discoveryTimeout,
+                        controller: vm.timeoutController,
+                        onChanged: (s) async {
+                          final timeout = int.tryParse(s);
+                          if (timeout != null) {
+                            await ref.notifier(settingsProvider).setDiscoveryTimeout(timeout);
+                          }
+                        },
+                      ),
                     ),
                   ),
                 if (vm.advanced)
-                  _BooleanEntry(
-                    label: t.settingsTab.network.encryption,
-                    value: vm.settings.https,
-                    onChanged: (b) async {
-                      final old = vm.settings.https;
-                      await ref.notifier(settingsProvider).setHttps(b);
-                      if (old && !b && context.mounted) {
-                        await EncryptionDisabledNotice.open(context);
-                      }
-                    },
+                  M3eSettingsRow(
+                    icon: Icons.shield_outlined,
+                    title: t.settingsTab.network.encryption,
+                    semanticLabel: t.settingsTab.network.encryption,
+                    trailing: M3eExpressiveSwitch(
+                      value: vm.settings.https,
+                      onChanged: (b) async {
+                        final old = vm.settings.https;
+                        await ref.notifier(settingsProvider).setHttps(b);
+                        if (old && !b && context.mounted) {
+                          await EncryptionDisabledNotice.open(context);
+                        }
+                      },
+                      semanticLabel: '${t.settingsTab.network.encryption}, ${vm.settings.https ? t.general.on : t.general.off}',
+                    ),
                   ),
                 if (vm.advanced)
-                  _SettingsEntry(
-                    label: t.settingsTab.network.multicastGroup,
-                    child: TextFieldTv(
-                      name: t.settingsTab.network.multicastGroup,
-                      controller: vm.multicastController,
-                      onChanged: (s) async {
-                        await ref.notifier(settingsProvider).setMulticastGroup(s);
-                      },
+                  M3eSettingsRow(
+                    icon: Icons.cell_tower_outlined,
+                    title: t.settingsTab.network.multicastGroup,
+                    semanticLabel: t.settingsTab.network.multicastGroup,
+                    trailing: SizedBox(
+                      width: 220,
+                      child: TextFieldTv(
+                        name: t.settingsTab.network.multicastGroup,
+                        controller: vm.multicastController,
+                        onChanged: (s) async {
+                          await ref.notifier(settingsProvider).setMulticastGroup(s);
+                        },
+                      ),
                     ),
                   ),
                 AnimatedCrossFade(
@@ -526,23 +655,29 @@ class SettingsTab extends StatelessWidget {
               title: t.settingsTab.other.title,
               padding: const EdgeInsets.only(bottom: 0),
               children: [
-                _ButtonEntry(
-                  label: t.aboutPage.title,
-                  buttonLabel: t.general.open,
+                M3eSettingsRow(
+                  icon: Icons.info_outline,
+                  title: t.aboutPage.title,
+                  semanticLabel: t.aboutPage.title,
+                  trailing: _settingsActionValue(context, t.general.open),
                   onTap: () async {
                     await context.push(() => const AboutPage());
                   },
                 ),
-                _ButtonEntry(
-                  label: t.settingsTab.other.support,
-                  buttonLabel: t.settingsTab.other.donate,
+                M3eSettingsRow(
+                  icon: Icons.favorite_border,
+                  title: t.settingsTab.other.support,
+                  semanticLabel: t.settingsTab.other.support,
+                  trailing: _settingsActionValue(context, t.settingsTab.other.donate),
                   onTap: () async {
                     await context.push(() => const DonationPage());
                   },
                 ),
-                _ButtonEntry(
-                  label: t.settingsTab.other.privacyPolicy,
-                  buttonLabel: t.general.open,
+                M3eSettingsRow(
+                  icon: Icons.policy_outlined,
+                  title: t.settingsTab.other.privacyPolicy,
+                  semanticLabel: t.settingsTab.other.privacyPolicy,
+                  trailing: _settingsActionValue(context, t.general.open),
                   onTap: () async {
                     await launchUrl(
                       Uri.parse('https://localsend.org/privacy'),
@@ -551,9 +686,11 @@ class SettingsTab extends StatelessWidget {
                   },
                 ),
                 if (checkPlatform([TargetPlatform.iOS, TargetPlatform.macOS]))
-                  _ButtonEntry(
-                    label: t.settingsTab.other.termsOfUse,
-                    buttonLabel: t.general.open,
+                  M3eSettingsRow(
+                    icon: Icons.gavel_outlined,
+                    title: t.settingsTab.other.termsOfUse,
+                    semanticLabel: t.settingsTab.other.termsOfUse,
+                    trailing: _settingsActionValue(context, t.general.open),
                     onTap: () async {
                       await launchUrl(
                         Uri.parse('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'),
@@ -563,20 +700,18 @@ class SettingsTab extends StatelessWidget {
                   ),
               ],
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                LabeledCheckbox(
-                  label: t.settingsTab.advancedSettings,
-                  value: vm.advanced,
-                  labelFirst: true,
-                  onChanged: (b) async {
-                    vm.onTapAdvanced(b == true);
-                    await ref.notifier(settingsProvider).setAdvancedSettingsEnabled(b == true);
-                  },
-                ),
-                const SizedBox(width: 10),
-              ],
+            M3eSettingsRow(
+              icon: Icons.tune,
+              title: t.settingsTab.advancedSettings,
+              semanticLabel: t.settingsTab.advancedSettings,
+              trailing: M3eExpressiveSwitch(
+                value: vm.advanced,
+                onChanged: (b) async {
+                  vm.onTapAdvanced(b);
+                  await ref.notifier(settingsProvider).setAdvancedSettingsEnabled(b);
+                },
+                semanticLabel: '${t.settingsTab.advancedSettings}, ${vm.advanced ? t.general.on : t.general.off}',
+              ),
             ),
             const SizedBox(height: 20),
             const LocalSendLogo(withText: true),
@@ -614,123 +749,29 @@ class SettingsTab extends StatelessWidget {
   }
 }
 
-class _SettingsEntry extends StatelessWidget {
-  final String label;
-  final Widget child;
-
-  const _SettingsEntry({required this.label, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final icon = _settingsIcon(label);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, color: scheme.primary, size: 24),
-            const SizedBox(width: 12),
-          ],
-          Expanded(
-            flex: 5,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            flex: 6,
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-IconData? _settingsIcon(String label) {
-  if (label == t.settingsTab.general.brightness) return Icons.dark_mode_outlined;
-  if (label == t.settingsTab.general.color) return Icons.palette_outlined;
-  if (label == t.settingsTab.general.language) return Icons.language;
-  if (label == t.settingsTab.general.animations) return Icons.auto_awesome;
-  if (label == t.settingsTab.receive.quickSave) return Icons.download_outlined;
-  if (label == t.settingsTab.receive.quickSaveFromFavorites) return Icons.favorite_border;
-  if (label == t.settingsTab.receive.requirePin) return Icons.lock_outline;
-  if (label == t.settingsTab.network.alias) return Icons.badge_outlined;
-  if (label == t.settingsTab.network.encryption) return Icons.shield_outlined;
-  return null;
-}
-
-/// A specialized version of [_SettingsEntry].
-class _BooleanEntry extends StatelessWidget {
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _BooleanEntry({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _SettingsEntry(
-      label: label,
-      child: SizedBox(
-        height: 56,
-        child: Align(
-          alignment: Alignment.center,
-          child: M3eExpressiveSwitch(
-            value: value,
-            onChanged: onChanged,
-            semanticLabel: '$label, ${value ? t.general.on : t.general.off}',
+Widget _settingsActionValue(BuildContext context, String value) {
+  final scheme = Theme.of(context).colorScheme;
+  return ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 240),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.primary),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// A specialized version of [_SettingsEntry].
-class _ButtonEntry extends StatelessWidget {
-  final String label;
-  final String buttonLabel;
-  final void Function() onTap;
-
-  const _ButtonEntry({
-    required this.label,
-    required this.buttonLabel,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return _SettingsEntry(
-      label: label,
-      child: FilledButton.tonal(
-        onPressed: onTap,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 56),
-          backgroundColor: scheme.surfaceContainerHigh,
-          foregroundColor: scheme.onSurface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+        const SizedBox(width: 4),
+        ExcludeSemantics(
+          child: Icon(Icons.chevron_right, size: 20, color: scheme.onSurfaceVariant),
         ),
-        child: Text(
-          buttonLabel,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 class _SettingsSection extends StatelessWidget {
@@ -746,35 +787,9 @@ class _SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: padding,
-      child: Card(
-        margin: EdgeInsets.zero,
-        color: scheme.surfaceContainerLow.withValues(alpha: 0.84),
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 22, 18, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 14),
-              ...children,
-            ],
-          ),
-        ),
-      ),
+      child: M3eSectionCard(title: title, children: children),
     );
   }
 }
