@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:localsend_app/config/init.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/pages/home_page_controller.dart';
+import 'package:localsend_app/pages/home_tab.dart';
 import 'package:localsend_app/pages/tabs/receive_tab.dart';
 import 'package:localsend_app/pages/tabs/send_tab.dart';
 import 'package:localsend_app/pages/tabs/settings_tab.dart';
@@ -16,27 +17,7 @@ import 'package:localsend_app/widget/m3e/m3e_components.dart';
 import 'package:localsend_app/widget/responsive_builder.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
-enum HomeTab {
-  receive(Icons.download_for_offline_outlined),
-  send(Icons.send),
-  settings(Icons.settings)
-  ;
-
-  const HomeTab(this.icon);
-
-  final IconData icon;
-
-  String get label {
-    switch (this) {
-      case HomeTab.receive:
-        return t.receiveTab.title;
-      case HomeTab.send:
-        return t.sendTab.title;
-      case HomeTab.settings:
-        return t.settingsTab.title;
-    }
-  }
-}
+export 'home_tab.dart' show HomeTab;
 
 class HomePage extends StatefulWidget {
   final HomeTab initialTab;
@@ -72,6 +53,7 @@ class _HomePageState extends State<HomePage> with Refena {
   Widget build(BuildContext context) {
     Translations.of(context); // rebuild on locale change
     final vm = context.watch(homePageControllerProvider);
+    final motionAllowed = context.watch(animationProvider) && !MediaQuery.disableAnimationsOf(context);
 
     return DropTarget(
       onDragEntered: (_) {
@@ -99,7 +81,7 @@ class _HomePageState extends State<HomePage> with Refena {
                 ),
               );
         }
-        vm.changeTab(HomeTab.send);
+        vm.changeTab(HomeTab.send, animate: motionAllowed);
       },
       child: ResponsiveBuilder(
         builder: (sizingInformation) {
@@ -118,7 +100,7 @@ class _HomePageState extends State<HomePage> with Refena {
                   if (!sizingInformation.isMobile)
                     NavigationRail(
                       selectedIndex: vm.currentTab.index,
-                      onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index]),
+                      onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index], animate: motionAllowed),
                       extended: sizingInformation.isDesktop,
                       backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.82),
                       leading: sizingInformation.isDesktop
@@ -179,13 +161,13 @@ class _HomePageState extends State<HomePage> with Refena {
               bottomNavigationBar: sizingInformation.isMobile
                   ? M3eFloatingNavigationBar(
                       selectedIndex: vm.currentTab.index,
-                      animationsEnabled: context.watch(animationProvider),
+                      animationsEnabled: motionAllowed,
                       destinations: HomeTab.values
                           .map(
                             (tab) => M3eNavigationDestination(
                               icon: tab.icon,
                               label: tab.label,
-                              onTap: () => vm.changeTab(tab),
+                              onTap: () => vm.changeTab(tab, animate: motionAllowed),
                             ),
                           )
                           .toList(),

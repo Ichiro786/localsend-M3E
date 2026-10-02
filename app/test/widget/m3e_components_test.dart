@@ -3,27 +3,34 @@ import 'dart:ui' show SemanticsAction, Tristate;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsend_app/config/m3e_tokens.dart';
+import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:localsend_app/widget/m3e/m3e_components.dart';
+import 'package:refena_flutter/refena_flutter.dart';
 
 void main() {
   testWidgets('expressive switch exposes state and toggles through its 48 dp hit region', (tester) async {
     var value = false;
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        home: StatefulBuilder(
-          builder: (context, setState) {
-            return Scaffold(
-              body: Center(
-                child: M3eExpressiveSwitch(
-                  value: value,
-                  semanticLabel: 'Animations, Off',
-                  onChanged: (next) => setState(() => value = next),
+      RefenaScope(
+        overrides: [
+          animationProvider.overrideWithBuilder((_) => true),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              return Scaffold(
+                body: Center(
+                  child: M3eExpressiveSwitch(
+                    value: value,
+                    semanticLabel: 'Animations, Off',
+                    onChanged: (next) => setState(() => value = next),
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -54,7 +61,7 @@ void main() {
     expect(find.byIcon(Icons.check), findsOneWidget);
   });
 
-  testWidgets('section headings use the theme title scale with a moderate weight', (tester) async {
+  testWidgets('section headings use the theme title scale and on-surface color', (tester) async {
     final theme = ThemeData(useMaterial3: true);
     await tester.pumpWidget(
       MaterialApp(
@@ -69,7 +76,7 @@ void main() {
     final resolvedTheme = Theme.of(tester.element(find.byType(M3eSectionCard)));
     expect(heading.style?.fontSize, resolvedTheme.textTheme.titleLarge?.fontSize);
     expect(heading.style?.fontWeight, FontWeight.w600);
-    expect(heading.style?.color, resolvedTheme.colorScheme.primary);
+    expect(heading.style?.color, resolvedTheme.colorScheme.onSurface);
     expect(tester.takeException(), isNull);
   });
 

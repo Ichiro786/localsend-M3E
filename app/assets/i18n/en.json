@@ -57,6 +57,7 @@
   },
   "sendTab": {
     "title": "Send",
+    "subtitle": "Select what you want to send",
     "selection": {
       "title": "Selection",
       "files": "Files: {files}",
@@ -72,6 +73,17 @@
     },
     "shareIntentInfo": "You can also use the \"Share\" feature of your mobile device to select files more easily.",
     "nearbyDevices": "Nearby devices",
+    "devicesAvailable(plural, param=count)": {
+      "one": "{count} device available",
+      "other": "{count} devices available"
+    },
+    "platforms": {
+      "mobile": "Mobile",
+      "desktop": "Desktop",
+      "web": "Web",
+      "headless": "Headless",
+      "server": "Server"
+    },
     "thisDevice": "This Device",
     "scan": "Search devices",
     "manualSending": "Manual sending",
@@ -87,78 +99,117 @@
   },
   "settingsTab": {
     "title": "Settings",
+    "subtitle": "Customize LocalSend to your preferences",
     "general": {
       "title": "General",
+      "subtitle": "Appearance, language and behavior",
       "brightness": "Theme",
+      "brightnessDescription": "Follow system or use dark/light theme",
       "brightnessOptions": {
         "system": "System",
         "dark": "Dark",
         "light": "Light"
       },
       "color": "Color",
+      "colorDescription": "Choose your accent color",
       "colorOptions": {
         "system": "System",
         "oled": "OLED",
         "custom": "Custom"
       },
       "language": "Language",
+      "languageDescription": "App language",
       "languageOptions": {
         "system": "System"
       },
       "saveWindowPlacement": "Save window position after quit",
       "saveWindowPlacementWindows": "Save window position after exit",
+      "saveWindowPlacementDescription": "Restore the window's last position when LocalSend opens",
       "minimizeToTray": "Minimize to the System Tray/Menu Bar when closing",
+      "minimizeToTrayDescription": "Keep LocalSend running in the tray or menu bar when the window closes",
       "launchAtStartup": "Autostart after login",
+      "launchAtStartupDescription": "Start LocalSend automatically after you sign in",
       "launchMinimized": "Autostart: Start hidden",
+      "launchMinimizedDescription": "Start automatically with the window hidden",
       "showInContextMenu": "Show LocalSend in context menu",
-      "animations": "Animations"
+      "showInContextMenuDescription": "Add LocalSend to supported system context menus",
+      "animations": "Animations",
+      "animationsDescription": "Enable smooth animations"
     },
     "receive": {
       "title": "Receive",
+      "subtitle": "Configure how you receive files",
       "quickSave": "@:general.quickSave",
+      "quickSaveDescription": "Automatically accept file requests from anyone on your local network and save the received files",
       "quickSaveFromFavorites": "@:general.quickSaveFromFavorites",
+      "quickSaveFromFavoritesDescription": "Automatically accept and save incoming files from your favorite devices",
       "requirePin": "@:webSharePage.requirePin",
+      "requirePinDescription": "Require a PIN before accepting files",
       "autoFinish": "Auto Finish",
+      "autoFinishDescription": "Finish receiving once all files arrive",
       "destination": "Save to folder",
+      "destinationDescription": "Choose where to save received files",
       "downloads": "(Downloads)",
       "saveToGallery": "Save media to gallery",
+      "saveToGalleryDescription": "Automatically save images and videos",
       "saveToHistory": "Save to history",
-      "verifyChecksums": "Verify checksums when receiving files"
+      "saveToHistoryDescription": "Keep received files in history",
+      "verifyChecksums": "Verify checksums when receiving files",
+      "verifyChecksumsDescription": "Check file integrity after receiving"
     },
     "send": {
       "title": "Send",
+      "subtitle": "Configure how you send files",
       "shareViaLinkAutoAccept": "Automatically accept requests in \"Share via link\" mode",
-      "createChecksums": "Create checksums when sending files"
+      "shareViaLinkAutoAcceptDescription": "Automatically accept incoming files",
+      "createChecksums": "Create checksums when sending files",
+      "createChecksumsDescription": "Check file integrity before sending"
     },
     "network": {
       "title": "Network",
+      "subtitle": "Device identity, discovery and connection settings",
       "needRestart": "Restart the server to apply the settings!",
       "server": "Server",
+      "serverDescription": "Start, restart or stop this device's local transfer server",
       "alias": "Device name",
+      "aliasDescription": "Choose the name nearby devices see",
       "deviceType": "Device type",
+      "deviceTypeDescription": "Choose how this device identifies itself to other devices",
       "deviceModel": "Device model",
+      "deviceModelDescription": "Set the model name shown to other devices",
       "port": "Port",
+      "portDescription": "Set the port used for local discovery and transfers",
       "network": "Network",
+      "networkDescription": "Choose which network interfaces are used for discovery",
       "networkOptions": {
         "all": "All",
         "filtered": "Filtered"
       },
       "discoveryTimeout": "Discovery Timeout",
+      "discoveryTimeoutDescription": "Set how long LocalSend waits to discover nearby devices",
       "useSystemName": "Use system name",
       "generateRandomAlias": "Generate random alias",
       "portWarning": "You might not be detected by other devices because you are using a custom port. (default: {defaultPort})",
       "encryption": "Encryption",
+      "encryptionDescription": "Encrypt connections when transferring files",
       "multicastGroup": "Multicast address",
+      "multicastGroupDescription": "Set the multicast address used for device discovery",
       "multicastGroupWarning": "You might not be detected by other devices because you are using a custom multicast address. (default: {defaultMulticast})"
     },
     "other": {
       "title": "Other",
+      "subtitle": "About, support and legal information",
+      "aboutDescription": "View the LocalSend version and project information",
       "support": "Support LocalSend",
+      "supportDescription": "Help support the continued development of LocalSend",
       "donate": "Donate",
       "privacyPolicy": "Privacy Policy",
-      "termsOfUse": "Terms of Use"
+      "privacyPolicyDescription": "Read how LocalSend handles your information",
+      "termsOfUse": "Terms of Use",
+      "termsOfUseDescription": "Review the terms for using LocalSend"
     },
-    "advancedSettings": "Advanced settings"
+    "advancedSettings": "Advanced settings",
+    "advancedSettingsDescription": "Show additional network and device options"
   },
   "troubleshootPage": {
     "title": "Troubleshoot",

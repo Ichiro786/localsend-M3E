@@ -8,6 +8,8 @@ import 'package:localsend_isolates/model/device.dart';
 class DeviceListTile extends StatelessWidget {
   final Device device;
   final bool isFavorite;
+  final bool showPlatformBadge;
+  final bool showLocalProtocolBadge;
 
   /// If not null, this name is used instead of [Device.alias].
   /// This is the case when the device is marked as favorite.
@@ -21,6 +23,8 @@ class DeviceListTile extends StatelessWidget {
   const DeviceListTile({
     required this.device,
     this.isFavorite = false,
+    this.showPlatformBadge = false,
+    this.showLocalProtocolBadge = false,
     this.nameOverride,
     this.info,
     this.progress,
@@ -33,6 +37,9 @@ class DeviceListTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final badgeColor = scheme.primaryContainer.withValues(alpha: 0.72);
     final title = nameOverride ?? device.alias;
+    final transmissionMethods = device.transmissionMethods;
+    final ip = device.ip?.trim();
+    final hasLocalEndpoint = ip != null && ip.isNotEmpty && ip != '-' && device.port >= 1 && device.port <= 65535;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -95,11 +102,27 @@ class DeviceListTile extends StatelessWidget {
                         runSpacing: 6,
                         spacing: 6,
                         children: [
-                          DeviceBadge(
-                            backgroundColor: badgeColor,
-                            foregroundColor: scheme.onPrimaryContainer,
-                            label: device.ip != null ? 'HTTP' : 'WebRTC',
-                          ),
+                          if (showPlatformBadge)
+                            DeviceBadge(
+                              backgroundColor: badgeColor,
+                              foregroundColor: scheme.onPrimaryContainer,
+                              label: device.deviceType.displayName,
+                            ),
+                          for (final method in transmissionMethods)
+                            DeviceBadge(
+                              backgroundColor: badgeColor,
+                              foregroundColor: scheme.onPrimaryContainer,
+                              label: switch (method) {
+                                TransmissionMethod.http => device.https ? 'HTTPS' : method.label,
+                                TransmissionMethod.webrtc => method.label,
+                              },
+                            ),
+                          if (showLocalProtocolBadge && transmissionMethods.isEmpty && hasLocalEndpoint)
+                            DeviceBadge(
+                              backgroundColor: badgeColor,
+                              foregroundColor: scheme.onPrimaryContainer,
+                              label: device.https ? 'HTTPS' : 'HTTP',
+                            ),
                           if (device.deviceModel != null)
                             DeviceBadge(
                               backgroundColor: badgeColor,

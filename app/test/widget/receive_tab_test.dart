@@ -28,79 +28,275 @@ void main() {
     LocaleSettings.setLocaleSync(AppLocale.en);
   });
 
-  testWidgets('Receive link CTA stays tappable above production floating navigation at narrow sizes', (tester) async {
-    for (final height in [460.0, 760.0, 1100.0]) {
-      _setViewport(tester, Size(320, height));
-      final navigationService = _RecordingNavigationService();
-      await tester.pumpWidget(
-        _receiveApp(
-          textScale: 1.8,
-          animationsEnabled: false,
-          navigationService: navigationService,
-        ),
+  testWidgets(
+    'Receive link CTA stays tappable above production floating navigation at narrow sizes',
+    (tester) async {
+      for (final height in [460.0, 760.0, 1100.0]) {
+        _setViewport(tester, Size(320, height));
+        final navigationService = _RecordingNavigationService();
+        await tester.pumpWidget(
+          _receiveApp(
+            textScale: 1.8,
+            animationsEnabled: false,
+            navigationService: navigationService,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final alias = find.text('Test receiver');
+        expect(find.text('LocalSend'), findsOneWidget);
+        expect(find.text(t.receiveTab.subtitle), findsOneWidget);
+        final link = find.text(t.receiveTab.link);
+        expect(alias, findsOneWidget);
+        expect(link, findsOneWidget);
+        await tester.ensureVisible(alias);
+        await tester.pumpAndSettle();
+        var rect = tester.getRect(alias);
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(height));
+
+        final cta = find.byType(M3eTonalActionButton);
+        expect(cta, findsOneWidget);
+        await tester.ensureVisible(cta);
+        await tester.pumpAndSettle();
+        rect = tester.getRect(cta);
+        final navigationRect = tester.getRect(
+          find.byType(M3eFloatingNavigationBar),
+        );
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(320));
+        expect(rect.width, lessThanOrEqualTo(320 * 0.56));
+        expect(rect.height, greaterThanOrEqualTo(64));
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(height));
+        expect(rect.bottom, lessThanOrEqualTo(navigationRect.top));
+        expect(rect.overlaps(navigationRect), isFalse);
+
+        await tester.tapAt(rect.center);
+        await tester.pump();
+        expect(navigationService.pushedWidget, isA<WebSharePage>());
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets(
+    'Receive link CTA remains viewport-relative on phone, tablet, and desktop screens',
+    (tester) async {
+      for (final viewport in [
+        const Size(390, 900),
+        const Size(1000, 900),
+        const Size(1920, 1080),
+      ]) {
+        _setViewport(tester, viewport);
+        final navigationService = _RecordingNavigationService();
+        await tester.pumpWidget(
+          _receiveApp(
+            animationsEnabled: false,
+            navigationService: navigationService,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final cta = find.byType(M3eTonalActionButton);
+        final rect = tester.getRect(cta);
+        expect(
+          rect.width,
+          inInclusiveRange(viewport.width * 0.54, viewport.width * 0.56),
+        );
+        expect(rect.center.dx, closeTo(viewport.width / 2, 0.1));
+        expect(rect.height, greaterThanOrEqualTo(64));
+        await tester.tapAt(rect.center);
+        await tester.pump();
+        expect(navigationService.pushedWidget, isA<WebSharePage>());
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets(
+    'Receive logo rotation respects both the saved app setting and system reduced motion',
+    (tester) async {
+      const scenarios = [
+        (true, false, true),
+        (false, false, false),
+        (true, true, false),
+      ];
+      const activeServer = ServerState(
+        alias: 'Test receiver',
+        port: 53317,
+        https: false,
+        session: null,
+        webSendState: null,
+        webUpload: false,
+        webPin: null,
       );
-      await tester.pumpAndSettle();
 
-      final alias = find.text('Test receiver');
-      final link = find.text(t.receiveTab.link);
-      expect(alias, findsOneWidget);
-      expect(link, findsOneWidget);
-      await tester.ensureVisible(alias);
-      await tester.pumpAndSettle();
-      var rect = tester.getRect(alias);
-      expect(rect.top, greaterThanOrEqualTo(0));
-      expect(rect.bottom, lessThanOrEqualTo(height));
+      for (final (animationsEnabled, disableAnimations, shouldSpin) in scenarios) {
+        await tester.pumpWidget(
+          _receiveApp(
+            serverState: activeServer,
+            animationsEnabled: animationsEnabled,
+            disableAnimations: disableAnimations,
+          ),
+        );
+        final rotatingLogo = tester.widget<RotatingWidget>(
+          find.byType(RotatingWidget),
+        );
+        expect(rotatingLogo.spinning, shouldSpin);
+        expect(tester.takeException(), isNull);
+        await tester.pump(const Duration(milliseconds: 600));
+      }
+    },
+  );
 
-      final cta = find.byType(M3eTonalActionButton);
-      expect(cta, findsOneWidget);
-      await tester.ensureVisible(cta);
-      await tester.pumpAndSettle();
-      rect = tester.getRect(cta);
-      final navigationRect = tester.getRect(find.byType(M3eFloatingNavigationBar));
-      expect(rect.left, greaterThanOrEqualTo(0));
-      expect(rect.right, lessThanOrEqualTo(320));
-      expect(rect.top, greaterThanOrEqualTo(0));
-      expect(rect.bottom, lessThanOrEqualTo(height));
-      expect(rect.bottom, lessThanOrEqualTo(navigationRect.top));
-      expect(rect.overlaps(navigationRect), isFalse);
+  testWidgets(
+    'Receive offline fade respects saved and system reduced motion',
+    (tester) async {
+      const scenarios = [
+        (true, false, true),
+        (false, false, false),
+        (true, true, false),
+      ];
 
-      await tester.tapAt(rect.center);
-      await tester.pump();
-      expect(navigationService.pushedWidget, isA<WebSharePage>());
-      expect(tester.takeException(), isNull);
-    }
-  });
+      for (final (animationsEnabled, disableAnimations, shouldAnimate) in scenarios) {
+        _setViewport(tester, const Size(390, 900));
+        await tester.pumpWidget(
+          _receiveApp(
+            animationsEnabled: animationsEnabled,
+            disableAnimations: disableAnimations,
+          ),
+        );
 
-  testWidgets('Receive logo rotation respects both the saved app setting and system reduced motion', (tester) async {
-    const scenarios = [
-      (true, false, true),
-      (false, false, false),
-      (true, true, false),
-    ];
-    const activeServer = ServerState(
-      alias: 'Test receiver',
-      port: 53317,
-      https: false,
-      session: null,
-      webSendState: null,
-      webUpload: false,
-      webPin: null,
-    );
+        final offline = find.text(t.general.offline);
+        final fade = find.ancestor(
+          of: offline,
+          matching: find.byType(AnimatedOpacity),
+        );
+        final fadeTransition = find.descendant(
+          of: fade,
+          matching: find.byType(FadeTransition),
+        );
+        expect(fade, findsOneWidget);
+        await tester.pump();
+        expect(
+          tester.widget<AnimatedOpacity>(fade).duration,
+          shouldAnimate ? const Duration(milliseconds: 300) : Duration.zero,
+        );
 
-    for (final (animationsEnabled, disableAnimations, shouldSpin) in scenarios) {
-      await tester.pumpWidget(
-        _receiveApp(
-          serverState: activeServer,
-          animationsEnabled: animationsEnabled,
-          disableAnimations: disableAnimations,
-        ),
-      );
-      final rotatingLogo = tester.widget<RotatingWidget>(find.byType(RotatingWidget));
-      expect(rotatingLogo.spinning, shouldSpin);
-      expect(tester.takeException(), isNull);
-      await tester.pump(const Duration(milliseconds: 600));
-    }
-  });
+        if (shouldAnimate) {
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump(const Duration(milliseconds: 100));
+          final opacity = tester.widget<FadeTransition>(fadeTransition).opacity.value;
+          expect(opacity, greaterThan(0));
+          expect(opacity, lessThan(1));
+        } else {
+          await tester.pumpAndSettle();
+          expect(tester.widget<FadeTransition>(fadeTransition).opacity.value, 1);
+        }
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets(
+    'Receive info and History transitions respect saved and system reduced motion',
+    (tester) async {
+      const scenarios = [
+        (true, false, true),
+        (false, false, false),
+        (true, true, false),
+      ];
+
+      for (final (animationsEnabled, disableAnimations, shouldAnimate) in scenarios) {
+        await tester.pumpWidget(
+          _receiveApp(
+            animationsEnabled: animationsEnabled,
+            disableAnimations: disableAnimations,
+          ),
+        );
+        await tester.pump(const Duration(seconds: 1));
+
+        final infoButton = find.byKey(const ValueKey('info-btn'));
+        final historyButton = find.byTooltip(t.receiveHistoryPage.title);
+        final infoTransition = find.byType(M3eMotionAwareCrossFade);
+        final infoBoxAlias = find.text(t.receiveTab.infoBox.alias);
+        final expectedDuration = shouldAnimate ? const Duration(milliseconds: 200) : Duration.zero;
+        expect(historyButton, findsOneWidget);
+        expect(infoTransition, findsOneWidget);
+        expect(
+          tester.widget<M3eMotionAwareCrossFade>(infoTransition).motionAllowed,
+          shouldAnimate,
+        );
+        expect(
+          tester.widget<M3eMotionAwareCrossFade>(infoTransition).crossFadeState,
+          CrossFadeState.showFirst,
+        );
+        if (shouldAnimate) {
+          expect(find.byType(AnimatedCrossFade), findsOneWidget);
+          expect(
+            tester.widget<AnimatedCrossFade>(find.byType(AnimatedCrossFade)).duration,
+            expectedDuration,
+          );
+        } else {
+          expect(find.byType(AnimatedCrossFade), findsNothing);
+          expect(infoBoxAlias, findsNothing);
+        }
+
+        await tester.tap(infoButton);
+        await tester.pump();
+        expect(
+          tester.widget<M3eMotionAwareCrossFade>(infoTransition).crossFadeState,
+          CrossFadeState.showSecond,
+        );
+        if (shouldAnimate) {
+          expect(
+            tester.widget<AnimatedCrossFade>(find.byType(AnimatedCrossFade)).duration,
+            expectedDuration,
+          );
+        } else {
+          expect(find.byType(AnimatedCrossFade), findsNothing);
+          expect(infoBoxAlias, findsOneWidget);
+        }
+        expect(historyButton, findsNothing);
+
+        await tester.tap(infoButton);
+        await tester.pump();
+        expect(
+          tester.widget<M3eMotionAwareCrossFade>(infoTransition).crossFadeState,
+          CrossFadeState.showFirst,
+        );
+        if (!shouldAnimate) {
+          expect(find.byType(AnimatedCrossFade), findsNothing);
+          expect(infoBoxAlias, findsNothing);
+        }
+        expect(historyButton, findsOneWidget);
+        final historyFade = find.ancestor(
+          of: historyButton,
+          matching: find.byType(AnimatedOpacity),
+        );
+        expect(historyFade, findsOneWidget);
+        expect(
+          tester.widget<AnimatedOpacity>(historyFade).duration,
+          expectedDuration,
+        );
+
+        if (shouldAnimate) {
+          expect(tester.widget<AnimatedOpacity>(historyFade).opacity, 0);
+          await tester.pump(const Duration(milliseconds: 199));
+          expect(tester.widget<AnimatedOpacity>(historyFade).opacity, 0);
+          await tester.pump(const Duration(milliseconds: 1));
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(tester.widget<AnimatedOpacity>(historyFade).opacity, 1);
+        } else {
+          expect(tester.widget<AnimatedOpacity>(historyFade).opacity, 1);
+          await tester.pump();
+          expect(tester.widget<AnimatedOpacity>(historyFade).opacity, 1);
+        }
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
 }
 
 void _setViewport(WidgetTester tester, Size size) {
@@ -122,10 +318,16 @@ Widget _receiveApp({
     key: UniqueKey(),
     overrides: [
       settingsProvider.overrideWithNotifier((_) => settings),
-      serverProvider.overrideWithNotifier((_) => _FixtureServerService(serverState)),
-      localIpProvider.overrideWithNotifier((_) => _FixtureLocalIpService(settings)),
+      serverProvider.overrideWithNotifier(
+        (_) => _FixtureServerService(serverState),
+      ),
+      localIpProvider.overrideWithNotifier(
+        (_) => _FixtureLocalIpService(settings),
+      ),
       animationProvider.overrideWithBuilder((_) => animationsEnabled),
-      navigationProvider.overrideWithValue(navigationService ?? _RecordingNavigationService()),
+      navigationProvider.overrideWithValue(
+        navigationService ?? _RecordingNavigationService(),
+      ),
     ],
     child: MaterialApp(
       theme: ThemeData(useMaterial3: true),
@@ -158,16 +360,32 @@ class _ReceiveMobileShell extends StatelessWidget {
           left: true,
           child: PageView(
             physics: const NeverScrollableScrollPhysics(),
-            children: const [ReceiveTab(), SizedBox.shrink(), SizedBox.shrink()],
+            children: const [
+              ReceiveTab(),
+              SizedBox.shrink(),
+              SizedBox.shrink(),
+            ],
           ),
         ),
         bottomNavigationBar: M3eFloatingNavigationBar(
           selectedIndex: 0,
           animationsEnabled: context.ref.watch(animationProvider),
           destinations: [
-            M3eNavigationDestination(icon: Icons.download_for_offline_outlined, label: t.receiveTab.title, onTap: () {}),
-            M3eNavigationDestination(icon: Icons.send, label: t.sendTab.title, onTap: () {}),
-            M3eNavigationDestination(icon: Icons.settings, label: t.settingsTab.title, onTap: () {}),
+            M3eNavigationDestination(
+              icon: Icons.download_for_offline_outlined,
+              label: t.receiveTab.title,
+              onTap: () {},
+            ),
+            M3eNavigationDestination(
+              icon: Icons.send,
+              label: t.sendTab.title,
+              onTap: () {},
+            ),
+            M3eNavigationDestination(
+              icon: Icons.settings,
+              label: t.settingsTab.title,
+              onTap: () {},
+            ),
           ],
         ),
       ),

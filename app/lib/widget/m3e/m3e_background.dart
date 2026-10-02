@@ -59,7 +59,18 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
     final animations = context.ref.watch(animationProvider);
     final scheme = Theme.of(context).colorScheme;
     final isOled = scheme.surface == Colors.black;
-    final prominence = isOled ? 0.0 : widget.emphasis.prominence;
+    final prominence = widget.emphasis.prominence;
+    final oledAlphaScale = scheme.brightness == Brightness.dark ? 0.54 : 0.055;
+    final primaryBlobColor = isOled
+        ? scheme.surfaceContainerLow.withValues(
+            alpha: oledAlphaScale * prominence,
+          )
+        : scheme.primaryContainer.withValues(alpha: 0.26 * prominence);
+    final tertiaryBlobColor = isOled
+        ? scheme.surfaceContainerHigh.withValues(
+            alpha: oledAlphaScale * 0.82 * prominence,
+          )
+        : scheme.tertiaryContainer.withValues(alpha: 0.22 * prominence);
     final motionAllowed = animations && !MediaQuery.of(context).disableAnimations && !isOled;
     _syncAnimation(motionAllowed);
 
@@ -83,7 +94,7 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
                 colorKey: const ValueKey('m3e-background-primary-blob'),
                 width: size.width * 0.86,
                 height: size.height * 0.58,
-                color: scheme.primaryContainer.withValues(alpha: 0.26 * prominence),
+                color: primaryBlobColor,
                 rotation: -0.12 + math.sin(progress * 0.61) * 0.025,
                 scale: 1.0 + math.sin(progress * 0.47) * 0.025,
               ),
@@ -95,7 +106,7 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
                 colorKey: const ValueKey('m3e-background-tertiary-blob'),
                 width: size.width * 0.78,
                 height: size.height * 0.54,
-                color: scheme.tertiaryContainer.withValues(alpha: 0.22 * prominence),
+                color: tertiaryBlobColor,
                 rotation: 0.14 + math.cos(progress * 0.52) * 0.03,
                 scale: 1.0 + math.cos(progress * 0.39) * 0.03,
               ),

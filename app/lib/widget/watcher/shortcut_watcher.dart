@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:localsend_app/pages/home_page.dart';
 import 'package:localsend_app/pages/home_page_controller.dart';
+import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:localsend_app/util/native/file_picker.dart';
 import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/widget/watcher/window_watcher.dart';
@@ -17,6 +18,7 @@ class ShortcutWatcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final motionAllowed = context.watch(animationProvider) && !MediaQuery.disableAnimationsOf(context);
     return Shortcuts(
       shortcuts: {
         // The select button on AndroidTV needs this to work
@@ -44,7 +46,7 @@ class ShortcutWatcher extends StatelessWidget {
             onInvoke: (_) async {
               await context.global.dispatchAsync(PickFileAction(option: FilePickerOption.clipboard, context: context));
               if (context.mounted) {
-                context.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.send));
+                context.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.send, animate: motionAllowed));
               }
               return null;
             },
@@ -61,7 +63,7 @@ class ShortcutWatcher extends StatelessWidget {
           ),
           _OpenSettingsIntent: CallbackAction(
             onInvoke: (_) async {
-              context.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.settings));
+              context.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.settings, animate: motionAllowed));
               return null;
             },
           ),
