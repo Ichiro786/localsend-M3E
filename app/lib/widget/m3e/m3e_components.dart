@@ -321,6 +321,11 @@ class M3eSettingsRow extends StatelessWidget {
 }
 
 class M3eSelectionCard extends StatelessWidget {
+  static const double _horizontalPadding = 10;
+  static const double _verticalPadding = 12;
+  static const double _iconPadding = 14;
+  static const double _iconSize = 28;
+
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -333,6 +338,22 @@ class M3eSelectionCard extends StatelessWidget {
     this.emphasized = false,
     super.key,
   });
+
+  static double requiredHeightForLabel({
+    required BuildContext context,
+    required String label,
+    required double cardWidth,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: Theme.of(context).textTheme.titleMedium),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    painter.layout(maxWidth: (cardWidth - _horizontalPadding * 2).clamp(0.0, double.infinity).toDouble());
+    final height = _verticalPadding * 2 + _iconPadding * 2 + _iconSize + M3eTokens.compactGap + painter.height;
+    painter.dispose();
+    return height.ceilToDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +375,7 @@ class M3eSelectionCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
+            padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding, vertical: _verticalPadding),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -364,19 +385,16 @@ class M3eSelectionCard extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(15),
-                    child: Icon(icon, size: 30, color: emphasized ? foreground : scheme.primary),
+                    padding: const EdgeInsets.all(_iconPadding),
+                    child: Icon(icon, size: _iconSize, color: emphasized ? foreground : scheme.primary),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: M3eTokens.compactGap),
                 Text(
                   label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: foreground,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
