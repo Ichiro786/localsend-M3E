@@ -383,7 +383,7 @@ void main() {
   );
 
   testWidgets(
-    'six picker choices retain distinct semantic accent assignments',
+    'six picker choices share one uniform icon accent treatment',
     (tester) async {
       final device = _fixtureDevice();
       _setViewport(tester, const Size(390, 1100));
@@ -398,14 +398,7 @@ void main() {
       expect(cards, hasLength(6));
       expect(
         cards.map((card) => card.accent),
-        [
-          M3eSelectionAccent.primary,
-          M3eSelectionAccent.error,
-          M3eSelectionAccent.secondary,
-          M3eSelectionAccent.tertiary,
-          M3eSelectionAccent.primaryFixed,
-          M3eSelectionAccent.secondaryFixed,
-        ],
+        List.filled(6, M3eSelectionAccent.primaryFixed),
       );
       expect(tester.takeException(), isNull);
     },

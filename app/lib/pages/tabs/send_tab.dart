@@ -80,14 +80,10 @@ class _SelectionGrid extends StatelessWidget {
             return M3eSelectionCard(
               icon: option.icon,
               label: option.label,
-              accent: switch (option) {
-                FilePickerOption.file => M3eSelectionAccent.primary,
-                FilePickerOption.media => M3eSelectionAccent.error,
-                FilePickerOption.clipboard => M3eSelectionAccent.secondary,
-                FilePickerOption.text => M3eSelectionAccent.tertiary,
-                FilePickerOption.folder => M3eSelectionAccent.primaryFixed,
-                FilePickerOption.app => M3eSelectionAccent.secondaryFixed,
-              },
+              // One uniform icon treatment for every picker option: the
+              // light fixed-container circle with a dark glyph, exactly the
+              // Folder/App style. Per-option hues made the grid look uneven.
+              accent: M3eSelectionAccent.primaryFixed,
               onTap: () => onSelect(option),
             );
           },

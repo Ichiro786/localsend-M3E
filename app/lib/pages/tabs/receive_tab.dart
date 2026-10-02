@@ -111,8 +111,13 @@ class _ReceiveTabState extends State<ReceiveTab> {
                               ),
                             ),
                             const SizedBox(height: 20),
+                            // The device name is the headline here, not the
+                            // app name: this screen identifies *this* device
+                            // to nearby senders.
                             Text(
-                              'LocalSend',
+                              serverState?.alias ?? alias,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 color: scheme.onSurface,
                                 fontWeight: FontWeight.w700,
@@ -126,18 +131,6 @@ class _ReceiveTabState extends State<ReceiveTab> {
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 10),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Text(
-                                serverState?.alias ?? alias,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
                             Visibility(
                               visible: serverState == null,
                               maintainSize: true,

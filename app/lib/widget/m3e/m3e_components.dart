@@ -595,9 +595,10 @@ class M3eFloatingNavigationBar extends StatelessWidget {
     final navigationSurface = DecoratedBox(
       key: const ValueKey('m3e-floating-navigation-surface'),
       decoration: BoxDecoration(
+        // Translucent on purpose: the frosted blur behind it must stay visible.
         color: M3eTokens.elevatedSurface(
           scheme,
-          opacity: motionAllowed ? 0.76 : 0.94,
+          opacity: motionAllowed ? 0.55 : 0.9,
         ),
         borderRadius: borderRadius,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
@@ -623,7 +624,9 @@ class M3eFloatingNavigationBar extends StatelessWidget {
       borderRadius: borderRadius,
       child: motionAllowed
           ? BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+              // Pixel-style frosted glass: heavy blur over a translucent
+              // surface so page content melts behind the pill.
+              filter: ui.ImageFilter.blur(sigmaX: M3eTokens.frostedBlurSigma, sigmaY: M3eTokens.frostedBlurSigma),
               child: navigationSurface,
             )
           : navigationSurface,

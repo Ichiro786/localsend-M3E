@@ -17,6 +17,8 @@ abstract final class M3eTokens {
   static const double settingsRowControlMinimumSize = 48;
   static const double settingsRowMinimumLabelWidth = 96;
   static const double settingsRowCompactBreakpoint = 280;
+  // Pixel-style frosted glass blur for floating surfaces (navigation bar).
+  static const double frostedBlurSigma = 28;
   // Semantic motion tokens preserve the approved Phase 2 timings while giving
   // Phase 3 interactions one shared vocabulary.
   static const Duration microMotion = Duration(milliseconds: 140);
