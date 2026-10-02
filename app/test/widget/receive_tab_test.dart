@@ -44,10 +44,11 @@ void main() {
         await tester.pumpAndSettle();
 
         final alias = find.text('Test receiver');
-        expect(find.text('LocalSend'), findsOneWidget);
+        expect(alias, findsOneWidget);
+        // The device name is the headline now; the app name is not shown.
+        expect(find.text('LocalSend'), findsNothing);
         expect(find.text(t.receiveTab.subtitle), findsOneWidget);
         final link = find.text(t.receiveTab.link);
-        expect(alias, findsOneWidget);
         expect(link, findsOneWidget);
         await tester.ensureVisible(alias);
         await tester.pumpAndSettle();

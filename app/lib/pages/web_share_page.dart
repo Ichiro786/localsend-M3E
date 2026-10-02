@@ -214,10 +214,13 @@ class _WebSharePageState extends State<WebSharePage> with Refena {
                                 Expanded(
                                   child: SelectableText(
                                     url,
+                                    // Long URLs used to wrap into the icon
+                                    // buttons; keep one clean truncated line.
+                                    maxLines: 1,
                                     style: Theme.of(context).textTheme.bodyMedium,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 8),
                                 M3eIconButton(
                                   icon: Icons.content_copy,
                                   tooltip: t.general.copy,

@@ -65,6 +65,16 @@ ThemeData getTheme(ColorMode colorMode, Color customColor, Brightness brightness
         TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
       ),
     ),
+    // M3 Expressive popup menus: generously rounded so every dropdown
+    // (send mode, scan targets, history entries, ...) matches the M3E cards.
+    popupMenuTheme: PopupMenuThemeData(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.45)),
+      ),
+      color: M3eTokens.elevatedSurface(colorScheme, opacity: 0.96),
+      elevation: 3,
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: colorScheme.surfaceContainerHigh,
