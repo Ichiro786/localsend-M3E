@@ -996,7 +996,7 @@ void main() {
         );
         expect(
           (iconSurface.decoration as BoxDecoration).color,
-          scheme.primaryContainer,
+          scheme.primaryFixedDim,
         );
         expect(
           tester
@@ -1004,7 +1004,7 @@ void main() {
                 find.descendant(of: selection, matching: find.byType(Icon)).first,
               )
               .color,
-          scheme.onPrimaryContainer,
+          scheme.onPrimaryFixed,
         );
 
         final troubleshoot = find.ancestor(
