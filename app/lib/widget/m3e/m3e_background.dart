@@ -4,6 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
+enum M3eBackgroundEmphasis {
+  receive(1),
+  send(0.68),
+  settings(0.38)
+  ;
+
+  const M3eBackgroundEmphasis(this.prominence);
+
+  final double prominence;
+}
+
 /// A lightweight atmospheric background used by the three primary tabs.
 ///
 /// The blobs are deliberately painted as clipped vector paths rather than
@@ -11,8 +22,13 @@ import 'package:refena_flutter/refena_flutter.dart';
 /// expressive, organic M3E language across display sizes and themes.
 class M3eExpressiveBackground extends StatefulWidget {
   final Widget child;
+  final M3eBackgroundEmphasis emphasis;
 
-  const M3eExpressiveBackground({required this.child, super.key});
+  const M3eExpressiveBackground({
+    required this.child,
+    this.emphasis = M3eBackgroundEmphasis.receive,
+    super.key,
+  });
 
   @override
   State<M3eExpressiveBackground> createState() => _M3eExpressiveBackgroundState();
@@ -22,7 +38,7 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 24),
-  )..repeat(); // ignore: discarded_futures
+  );
 
   @override
   void dispose() {
@@ -41,9 +57,12 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
   @override
   Widget build(BuildContext context) {
     final animations = context.ref.watch(animationProvider);
-    _syncAnimation(animations);
-
     final scheme = Theme.of(context).colorScheme;
+    final isOled = scheme.surface == Colors.black;
+    final prominence = isOled ? 0.0 : widget.emphasis.prominence;
+    final motionAllowed = animations && !MediaQuery.of(context).disableAnimations && !isOled;
+    _syncAnimation(motionAllowed);
+
     final size = MediaQuery.sizeOf(context);
 
     return AnimatedBuilder(
@@ -53,14 +72,18 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
         return Stack(
           fit: StackFit.expand,
           children: [
-            ColoredBox(color: scheme.surface),
+            ColoredBox(
+              key: const ValueKey('m3e-background-surface'),
+              color: scheme.surface,
+            ),
             Positioned(
               left: -size.width * 0.46 + math.sin(progress * 0.92) * 14,
               top: -size.height * 0.16 + math.cos(progress * 0.74) * 12,
               child: _M3eBlob(
+                colorKey: const ValueKey('m3e-background-primary-blob'),
                 width: size.width * 0.86,
                 height: size.height * 0.58,
-                color: scheme.primaryContainer.withValues(alpha: 0.26),
+                color: scheme.primaryContainer.withValues(alpha: 0.26 * prominence),
                 rotation: -0.12 + math.sin(progress * 0.61) * 0.025,
                 scale: 1.0 + math.sin(progress * 0.47) * 0.025,
               ),
@@ -69,9 +92,10 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
               right: -size.width * 0.42 + math.cos(progress * 0.68) * 16,
               bottom: size.height * 0.05 + math.sin(progress * 0.81) * 14,
               child: _M3eBlob(
+                colorKey: const ValueKey('m3e-background-tertiary-blob'),
                 width: size.width * 0.78,
                 height: size.height * 0.54,
-                color: scheme.tertiaryContainer.withValues(alpha: 0.22),
+                color: scheme.tertiaryContainer.withValues(alpha: 0.22 * prominence),
                 rotation: 0.14 + math.cos(progress * 0.52) * 0.03,
                 scale: 1.0 + math.cos(progress * 0.39) * 0.03,
               ),
@@ -86,6 +110,7 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
 }
 
 class _M3eBlob extends StatelessWidget {
+  final Key? colorKey;
   final double width;
   final double height;
   final Color color;
@@ -93,6 +118,7 @@ class _M3eBlob extends StatelessWidget {
   final double scale;
 
   const _M3eBlob({
+    this.colorKey,
     required this.width,
     required this.height,
     required this.color,
@@ -110,6 +136,7 @@ class _M3eBlob extends StatelessWidget {
           child: ClipPath(
             clipper: const _OrganicBlobClipper(),
             child: ColoredBox(
+              key: colorKey,
               color: color,
               child: SizedBox(width: width, height: height),
             ),

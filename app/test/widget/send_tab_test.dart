@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:localsend_app/config/m3e_tokens.dart';
+import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
+import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/model/persistence/color_mode.dart';
 import 'package:localsend_app/model/send_mode.dart';
 import 'package:localsend_app/model/state/nearby_devices_state.dart';
@@ -11,12 +14,17 @@ import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:localsend_app/provider/favorites_provider.dart';
 import 'package:localsend_app/provider/logging/discovery_logs_provider.dart';
 import 'package:localsend_app/provider/network/nearby_devices_provider.dart';
+import 'package:localsend_app/provider/network/scan_facade.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
+import 'package:localsend_app/widget/list_tile/device_placeholder_list_tile.dart';
 import 'package:localsend_app/widget/m3e/m3e_components.dart';
+import 'package:localsend_app/widget/opacity_slideshow.dart';
+import 'package:localsend_app/widget/rotating_widget.dart';
 import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/device_info_result.dart';
 import 'package:localsend_isolates/model/dto/multicast_dto.dart';
+import 'package:localsend_isolates/model/file_type.dart';
 import 'package:localsend_isolates/model/stored_security_context.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
@@ -62,6 +70,188 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
+
+  testWidgets('Send peer heading and selected/troubleshooting cards use shared styles and shape token', (tester) async {
+    final device = _fixtureDevice();
+    final theme = ThemeData(
+      useMaterial3: true,
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: Color(0xFFE8EEEC),
+      ),
+    );
+    final selectedFile = const CrossFile(
+      name: 'notes.txt',
+      fileType: FileType.text,
+      size: 5,
+      thumbnail: null,
+      asset: null,
+      path: null,
+      bytes: null,
+      lastModified: null,
+      lastAccessed: null,
+    );
+    _setViewport(tester, const Size(390, 1100));
+
+    await tester.pumpWidget(
+      _sendApp(
+        device: device,
+        vm: _fixtureVm(device, [], selectedFiles: [selectedFile]),
+        theme: theme,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nearbyHeading = tester.widget<Text>(find.text(t.sendTab.nearbyDevices));
+    final resolvedTheme = Theme.of(tester.element(find.byType(SendTab)));
+    expect(nearbyHeading.style?.fontSize, resolvedTheme.textTheme.titleLarge?.fontSize);
+    expect(nearbyHeading.style?.fontWeight, FontWeight.w600);
+
+    final selectedCard = find.ancestor(
+      of: find.text(t.sendTab.selection.title),
+      matching: find.byType(Card),
+    );
+    final troubleshootingCard = find.ancestor(
+      of: find.text(t.troubleshootPage.title).last,
+      matching: find.byType(Card),
+    );
+    for (final cardFinder in [selectedCard, troubleshootingCard]) {
+      final shape = tester.widget<Card>(cardFinder).shape! as RoundedRectangleBorder;
+      expect(shape.borderRadius, BorderRadius.circular(M3eTokens.cardRadius));
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'troubleshooting slideshow respects both saved and system reduced-motion settings',
+    (tester) async {
+      final device = _fixtureDevice();
+      const scenarios = [
+        (true, false, true),
+        (false, false, false),
+        (true, true, false),
+      ];
+
+      for (final (animationsEnabled, disableAnimations, shouldRun) in scenarios) {
+        await tester.pumpWidget(
+          _sendApp(
+            device: device,
+            vm: _fixtureVm(device, []),
+            animationsEnabled: animationsEnabled,
+            disableAnimations: disableAnimations,
+          ),
+        );
+        final slideshow = tester.widget<OpacitySlideshow>(find.byType(OpacitySlideshow));
+        expect(
+          slideshow.running,
+          shouldRun,
+          reason: 'app animations=$animationsEnabled, system reduced motion=$disableAnimations',
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+
+  testWidgets('scan and per-IP sync rotations respect app and system reduced motion', (tester) async {
+    final device = _fixtureDevice();
+    final localIps = List.generate(StartSmartScan.maxInterfaces + 1, (index) => '192.168.1.${index + 10}');
+    const scenarios = [
+      (true, false, true),
+      (false, false, false),
+      (true, true, false),
+    ];
+
+    _setViewport(tester, const Size(390, 1100));
+    for (final (animationsEnabled, disableAnimations, shouldSpin) in scenarios) {
+      await tester.pumpWidget(
+        _sendApp(
+          device: device,
+          vm: _fixtureVm(device, [], localIps: localIps),
+          animationsEnabled: animationsEnabled,
+          disableAnimations: disableAnimations,
+          runningIps: {localIps.first},
+        ),
+      );
+      await tester.pump();
+
+      final scanButton = find.byTooltip(t.sendTab.scan);
+      expect(scanButton, findsOneWidget);
+      final scanRotator = find.ancestor(
+        of: find.byIcon(Icons.sync).first,
+        matching: find.byType(RotatingWidget),
+      );
+      expect(tester.widget<RotatingWidget>(scanRotator.first).spinning, shouldSpin);
+      final scanIcon = find.byIcon(Icons.sync).first;
+      final scanIconColor = tester.widget<Icon>(scanIcon).color;
+      final warningColor = Theme.of(tester.element(scanIcon)).colorScheme.warning;
+      if (shouldSpin) {
+        expect(scanIconColor, isNull);
+      } else {
+        expect(scanIconColor, warningColor);
+      }
+      final scanTransform = find.descendant(of: scanRotator.first, matching: find.byType(Transform));
+      final scanBefore = _rotationMatrix(tester, scanTransform);
+
+      await tester.tap(scanButton);
+      await tester.pump(const Duration(milliseconds: 500));
+      final scanAfter = _rotationMatrix(tester, scanTransform);
+      if (shouldSpin) {
+        expect(scanAfter, isNot(equals(scanBefore)));
+      } else {
+        expect(scanAfter, equals(scanBefore));
+      }
+      final ipMenuItem = find.byWidgetPredicate(
+        (widget) => widget is PopupMenuItem<String> && widget.value == localIps.first,
+      );
+      expect(ipMenuItem, findsOneWidget);
+      final ipRotator = find.descendant(of: ipMenuItem, matching: find.byType(RotatingWidget));
+      expect(ipRotator, findsOneWidget);
+      expect(tester.widget<RotatingWidget>(ipRotator).spinning, shouldSpin);
+
+      final transform = find.descendant(of: ipRotator, matching: find.byType(Transform));
+      final before = _rotationMatrix(tester, transform);
+      await tester.pump(const Duration(milliseconds: 300));
+      final after = _rotationMatrix(tester, transform);
+      if (shouldSpin) {
+        expect(after, isNot(equals(before)));
+      } else {
+        expect(after, equals(before));
+      }
+      expect(tester.takeException(), isNull);
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('discovery placeholder slideshow respects saved and system reduced motion', (tester) async {
+    const scenarios = [
+      (true, false, true),
+      (false, false, false),
+      (true, true, false),
+    ];
+
+    for (final (animationsEnabled, disableAnimations, shouldRun) in scenarios) {
+      await tester.pumpWidget(
+        _placeholderApp(
+          animationsEnabled: animationsEnabled,
+          disableAnimations: disableAnimations,
+        ),
+      );
+      final slideshowFinder = find.byType(OpacitySlideshow);
+      final slideshow = tester.widget<OpacitySlideshow>(slideshowFinder);
+      expect(slideshow.running, shouldRun);
+      final iconFinder = find.descendant(of: slideshowFinder, matching: find.byType(Icon));
+      final before = tester.widget<Icon>(iconFinder.first).icon;
+
+      await tester.pump(const Duration(milliseconds: 3500));
+      final after = tester.widget<Icon>(iconFinder.first).icon;
+      if (shouldRun) {
+        expect(after, isNot(before));
+      } else {
+        expect(after, before);
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets(
     'picker labels remain within the viewport at narrow width and larger text scale',
@@ -279,39 +469,76 @@ void _setViewport(WidgetTester tester, Size size) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+List<double> _rotationMatrix(WidgetTester tester, Finder transform) {
+  return tester.widget<Transform>(transform).transform.storage.toList();
+}
+
+Widget _placeholderApp({required bool animationsEnabled, required bool disableAnimations}) {
+  return RefenaScope(
+    key: UniqueKey(),
+    overrides: [animationProvider.overrideWithBuilder((_) => animationsEnabled)],
+    child: MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(disableAnimations: disableAnimations),
+          child: child!,
+        );
+      },
+      home: const Scaffold(body: DevicePlaceholderListTile()),
+    ),
+  );
+}
+
 Widget _sendApp({
   required Device device,
   required SendTabVm vm,
   double textScale = 1,
   ThemeData? theme,
+  bool animationsEnabled = false,
+  bool disableAnimations = false,
+  Set<String> runningIps = const {},
 }) {
   final settings = _fixtureSettings();
   return RefenaScope(
+    key: UniqueKey(),
     overrides: [
       sendTabVmProvider.overrideWithBuilder((_) => vm),
-      nearbyDevicesProvider.overrideWithNotifier((_) => _FixtureNearbyDevicesService(device)),
+      nearbyDevicesProvider.overrideWithNotifier((_) => _FixtureNearbyDevicesService(device, runningIps: runningIps)),
       settingsProvider.overrideWithNotifier((_) => _FixtureSettingsService(settings)),
-      animationProvider.overrideWithBuilder((_) => false),
+      animationProvider.overrideWithBuilder((_) => animationsEnabled),
     ],
     child: MaterialApp(
       theme: theme ?? ThemeData(useMaterial3: true),
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
-            child: const SendTab(),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: TextScaler.linear(textScale),
+            disableAnimations: disableAnimations,
           ),
-        ),
+          child: child!,
+        );
+      },
+      home: const Scaffold(
+        body: SendTab(),
       ),
     ),
   );
 }
 
-SendTabVm _fixtureVm(Device device, List<String> calls, {List<SendMode>? selectedModes}) {
+SendTabVm _fixtureVm(
+  Device device,
+  List<String> calls, {
+  List<String> localIps = const [],
+  List<SendMode>? selectedModes,
+  List<CrossFile> selectedFiles = const [],
+}) {
   return SendTabVm(
     sendMode: SendMode.single,
-    selectedFiles: const [],
-    localIps: const [],
+    selectedFiles: selectedFiles,
+    localIps: localIps,
     nearbyDevices: [device],
     favoriteDevices: const [],
     onTapAddress: (_) async => calls.add('manual'),
@@ -384,8 +611,9 @@ class _FixtureSettingsService extends SettingsService {
 
 class _FixtureNearbyDevicesService extends NearbyDevicesService {
   final Device device;
+  final Set<String> runningIps;
 
-  _FixtureNearbyDevicesService(this.device)
+  _FixtureNearbyDevicesService(this.device, {this.runningIps = const {}})
     : super(
         isolateController: IsolateController(initialState: _parentState()),
         favoriteService: FavoritesService(MockPersistenceService()),
@@ -395,7 +623,7 @@ class _FixtureNearbyDevicesService extends NearbyDevicesService {
   @override
   NearbyDevicesState init() => NearbyDevicesState(
     runningFavoriteScan: false,
-    runningIps: const {},
+    runningIps: runningIps,
     devices: {device.fingerprint: device},
     signalingDevices: const {},
   );

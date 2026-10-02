@@ -54,6 +54,25 @@ void main() {
     expect(find.byIcon(Icons.check), findsOneWidget);
   });
 
+  testWidgets('section headings use the theme title scale with a moderate weight', (tester) async {
+    final theme = ThemeData(useMaterial3: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: M3eSectionCard(title: 'Settings section', children: const [SizedBox(height: 1)]),
+        ),
+      ),
+    );
+
+    final heading = tester.widget<Text>(find.text('Settings section'));
+    final resolvedTheme = Theme.of(tester.element(find.byType(M3eSectionCard)));
+    expect(heading.style?.fontSize, resolvedTheme.textTheme.titleLarge?.fontSize);
+    expect(heading.style?.fontWeight, FontWeight.w600);
+    expect(heading.style?.color, resolvedTheme.colorScheme.primary);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('floating navigation leaves the app body behind its transparent slot in both themes', (tester) async {
     const pageBackground = Color(0xFF00A896);
     for (final brightness in [Brightness.light, Brightness.dark]) {

@@ -12,6 +12,7 @@ class DevicePlaceholderListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final animations = context.ref.watch(animationProvider);
+    final motionAllowed = animations && !MediaQuery.of(context).disableAnimations;
     final placeholder = scheme.onSurface.withValues(alpha: 0.12);
 
     return Card(
@@ -35,7 +36,7 @@ class DevicePlaceholderListTile extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: OpacitySlideshow(
                   durationMillis: 3000,
-                  running: animations,
+                  running: motionAllowed,
                   children: [
                     ...DeviceType.values.map((d) => Icon(d.icon, size: 42, color: scheme.onPrimaryContainer)),
                   ],

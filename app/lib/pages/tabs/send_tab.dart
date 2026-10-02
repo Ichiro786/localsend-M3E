@@ -123,7 +123,7 @@ class SendTab extends StatelessWidget {
                 color: Theme.of(context).colorScheme.surfaceContainerLow.withValues(alpha: 0.88),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
                   side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
                 ),
                 child: Padding(
@@ -294,7 +294,7 @@ class SendTab extends StatelessWidget {
                 color: Theme.of(context).colorScheme.surfaceContainerLow.withValues(alpha: 0.62),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
                   side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.35)),
                 ),
                 clipBehavior: Clip.antiAlias,
@@ -307,9 +307,10 @@ class SendTab extends StatelessWidget {
                     child: Consumer(
                       builder: (context, ref) {
                         final animations = ref.watch(animationProvider);
+                        final motionAllowed = animations && !MediaQuery.of(context).disableAnimations;
                         return OpacitySlideshow(
                           durationMillis: 6000,
-                          running: animations,
+                          running: motionAllowed,
                           children: [
                             Column(
                               children: [
@@ -429,8 +430,9 @@ class _ScanButton extends StatelessWidget {
     final (scanningFavorites, scanningIps) = context.ref.watch(nearbyDevicesProvider.select((s) => (s.runningFavoriteScan, s.runningIps)));
     final animations = context.ref.watch(animationProvider);
 
-    final spinning = (scanningFavorites || scanningIps.isNotEmpty) && animations;
-    final iconColor = !animations && scanningIps.isNotEmpty ? Theme.of(context).colorScheme.warning : null;
+    final motionAllowed = animations && !MediaQuery.of(context).disableAnimations;
+    final spinning = (scanningFavorites || scanningIps.isNotEmpty) && motionAllowed;
+    final iconColor = !motionAllowed && scanningIps.isNotEmpty ? Theme.of(context).colorScheme.warning : null;
 
     if (ips.length <= StartSmartScan.maxInterfaces) {
       return RotatingWidget(
@@ -494,9 +496,10 @@ class _RotatingSyncIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final scanningIps = context.ref.watch(nearbyDevicesProvider.select((s) => s.runningIps));
     final animations = context.ref.watch(animationProvider);
+    final motionAllowed = animations && !MediaQuery.of(context).disableAnimations;
     return RotatingWidget(
       duration: const Duration(seconds: 2),
-      spinning: animations && scanningIps.contains(ip),
+      spinning: motionAllowed && scanningIps.contains(ip),
       reverse: true,
       child: const Icon(Icons.sync),
     );

@@ -103,7 +103,13 @@ class _HomePageState extends State<HomePage> with Refena {
       },
       child: ResponsiveBuilder(
         builder: (sizingInformation) {
+          final backgroundEmphasis = switch (vm.currentTab) {
+            HomeTab.receive => M3eBackgroundEmphasis.receive,
+            HomeTab.send => M3eBackgroundEmphasis.send,
+            HomeTab.settings => M3eBackgroundEmphasis.settings,
+          };
           return M3eExpressiveBackground(
+            emphasis: backgroundEmphasis,
             child: Scaffold(
               extendBody: true,
               backgroundColor: Colors.transparent,
