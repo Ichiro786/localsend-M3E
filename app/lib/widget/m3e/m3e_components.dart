@@ -137,7 +137,11 @@ class M3eIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Semantics(
+      container: true,
+      excludeSemantics: true,
       button: true,
+      enabled: onPressed != null,
+      onTap: onPressed,
       label: tooltip,
       child: IconButton(
         tooltip: tooltip,

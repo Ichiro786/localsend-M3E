@@ -260,7 +260,7 @@ void main() {
           home: Scaffold(
             body: MediaQuery(
               data: MediaQueryData(disableAnimations: animations),
-              child: M3eExpressiveSwitch(value: true, onChanged: (_) {}, semanticLabel: 'Animations', animationsEnabled: !animations),
+              child: M3eExpressiveSwitch(value: true, onChanged: (_) {}, semanticLabel: 'Animations', animationsEnabled: animations),
             ),
           ),
         ),

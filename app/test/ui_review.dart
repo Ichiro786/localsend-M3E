@@ -18,6 +18,10 @@ Future<void> loadUiReviewFonts() async {
     loader.addFont(file.readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
   }
   await loader.load();
+  final icons = FontLoader('MaterialIcons');
+  final iconFile = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+  icons.addFont(iconFile.readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
+  await icons.load();
 }
 
 Future<void> captureUiReview(WidgetTester tester, String name) async {

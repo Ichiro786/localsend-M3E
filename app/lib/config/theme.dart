@@ -173,7 +173,10 @@ ColorScheme _determineColorScheme(ColorMode mode, Color customColor, Brightness 
   final colorScheme = switch (mode) {
     ColorMode.system => brightness == Brightness.light ? dynamicColors?.light : dynamicColors?.dark,
     ColorMode.localsend => null,
-    ColorMode.oled => (dynamicColors?.dark ?? defaultColorScheme).copyWith(
+    ColorMode.oled => ColorScheme.fromSeed(
+      seedColor: Colors.grey,
+      brightness: Brightness.dark,
+      dynamicSchemeVariant: DynamicSchemeVariant.monochrome,
       surface: Colors.black,
     ),
     ColorMode.yaru => throw 'Should reach here',

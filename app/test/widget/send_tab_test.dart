@@ -485,6 +485,7 @@ void main() {
         device: device,
         vm: _fixtureVm(device, [], selectedFiles: [file]),
         textScale: 2.4,
+        theme: getTheme(ColorMode.oled, Colors.teal, Brightness.dark, null),
       ),
     );
     await tester.pumpAndSettle();
@@ -536,6 +537,9 @@ void main() {
           expect(tester.getRect(icon).bottom, lessThan(tester.getRect(label).top));
           expect(tester.getRect(label).bottom, lessThanOrEqualTo(tester.getRect(card).bottom));
         }
+        final grid = tester.getRect(find.byType(GridView));
+        final lastTile = tester.getRect(find.byKey(ValueKey(pickerOptions.last)));
+        expect(grid.bottom, lastTile.bottom, reason: 'Nested grid must not repeat the navigation bottom inset');
         expect(find.text(t.sendTab.devicesAvailable(count: 1)), findsOneWidget);
         expect(tester.takeException(), isNull);
         await captureUiReview(tester, 'send-$name');

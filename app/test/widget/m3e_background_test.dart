@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:localsend_app/config/theme.dart';
+import 'package:localsend_app/model/persistence/color_mode.dart';
 import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:localsend_app/widget/m3e/m3e_background.dart';
 import 'package:refena_flutter/refena_flutter.dart';
@@ -9,6 +11,18 @@ const _primaryBlobKey = ValueKey('m3e-background-primary-blob');
 const _tertiaryBlobKey = ValueKey('m3e-background-tertiary-blob');
 
 void main() {
+  test('OLED keeps a dark black base and neutral UI tones regardless of requested brightness', () {
+    for (final brightness in Brightness.values) {
+      final scheme = getTheme(ColorMode.oled, Colors.deepOrange, brightness, null).colorScheme;
+      expect(scheme.brightness, Brightness.dark);
+      expect(scheme.surface, Colors.black);
+      for (final tone in [scheme.primary, scheme.primaryFixed, scheme.onPrimaryFixed, scheme.primaryContainer, scheme.surfaceContainerLow]) {
+        expect(tone.r, tone.g);
+        expect(tone.g, tone.b);
+      }
+    }
+  });
+
   testWidgets('organic globes keep tab emphasis and remain visible and animated over an OLED black base', (tester) async {
     final scheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark);
     const emphases = [

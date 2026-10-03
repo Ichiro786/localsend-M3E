@@ -45,6 +45,7 @@ class _SelectionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final animationsEnabled = context.watch(animationProvider);
     return LayoutBuilder(
       builder: (context, constraints) {
         final textScale = MediaQuery.textScalerOf(context).scale(1);
@@ -63,6 +64,7 @@ class _SelectionGrid extends StatelessWidget {
         });
         return GridView.builder(
           shrinkWrap: true,
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: pickerOptions.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -75,7 +77,7 @@ class _SelectionGrid extends StatelessWidget {
             final option = pickerOptions[index];
             return M3eSelectionCard(
               key: ValueKey(option),
-              animationsEnabled: context.watch(animationProvider),
+              animationsEnabled: animationsEnabled,
               icon: option.icon,
               label: option.label,
               onTap: () => onSelect(option),
