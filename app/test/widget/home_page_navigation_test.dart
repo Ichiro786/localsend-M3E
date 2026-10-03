@@ -271,8 +271,8 @@ void main() {
 }
 
 Future<void> _finishNavigation(WidgetTester tester) async {
-  // Drain completion callbacks, then give any newly scheduled ticker its first frame.
-  await tester.pump();
+  // A zero-duration clock advance drains zero-delay completion timers before motion starts.
+  await tester.pump(Duration.zero);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 600));
   await tester.pump();
