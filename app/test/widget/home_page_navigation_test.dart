@@ -99,10 +99,10 @@ void _expectNavigation(WidgetTester tester, RefenaContainer container, HomeTab t
 
 Widget _navigationApp(RefenaContainer container) => RefenaScope.withContainer(
   container: container,
-  child: MaterialApp(
+  child: TranslationProvider(child: MaterialApp(
     theme: getTheme(ColorMode.oled, Colors.teal, Brightness.dark, null),
     home: const HomePage(initialTab: HomeTab.receive, appStart: false),
-  ),
+  )),
 );
 
 RefenaContainer _navigationContainer() {
