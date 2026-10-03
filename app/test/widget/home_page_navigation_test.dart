@@ -145,12 +145,12 @@ void main() {
     await tester.pump();
     await tester.pump();
     _expectNavigation(tester, container, HomeTab.send);
-    container.notifier(sleepProvider).state = true;
+    container.notifier(sleepProvider).setState((_) => true);
     await _finishNavigation(tester);
     await _tapTab(tester, HomeTab.receive);
     _expectNavigation(tester, container, HomeTab.receive);
     expect(tester.widget<M3eFloatingNavigationBar>(find.byType(M3eFloatingNavigationBar)).animationsEnabled, isFalse);
-    container.notifier(sleepProvider).state = false;
+    container.notifier(sleepProvider).setState((_) => false);
     await _finishNavigation(tester);
     await _tapTab(tester, HomeTab.settings);
     _expectNavigation(tester, container, HomeTab.settings);
