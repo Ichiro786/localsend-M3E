@@ -216,10 +216,16 @@ void main() {
     for (final scale in [1.0, 1.8, 2.4]) {
       for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
         for (var selected = 0; selected < 3; selected++) {
-          await tester.pumpWidget(_navigationHost(
-            scheme: ColorScheme.fromSeed(seedColor: Colors.orange, brightness: Brightness.dark),
-            animationsEnabled: false, tapped: [], selectedIndex: selected, textScale: scale, direction: direction,
-          ));
+          await tester.pumpWidget(
+            _navigationHost(
+              scheme: ColorScheme.fromSeed(seedColor: Colors.orange, brightness: Brightness.dark),
+              animationsEnabled: false,
+              tapped: [],
+              selectedIndex: selected,
+              textScale: scale,
+              direction: direction,
+            ),
+          );
           await tester.pumpAndSettle();
           final surfaceFinder = find.byKey(const ValueKey('m3e-floating-navigation-surface'));
           final pillFinder = find.byKey(const ValueKey('m3e-navigation-selected-pill'));
@@ -235,7 +241,10 @@ void main() {
           expect(surface.bottom - pill.bottom, closeTo(M3eTokens.navigationInset, 0.01));
           expect(outerCurve.tlRadiusY - innerCurve.tlRadiusY, closeTo(M3eTokens.navigationInset, 0.01));
           for (final label in ['Receive', 'Send', 'Settings']) {
-            final icon = find.descendant(of: find.ancestor(of: find.text(label), matching: find.byType(AnimatedContainer)), matching: find.byType(Icon));
+            final icon = find.descendant(
+              of: find.ancestor(of: find.text(label), matching: find.byType(AnimatedContainer)),
+              matching: find.byType(Icon),
+            );
             expect(tester.getRect(icon).bottom, lessThanOrEqualTo(tester.getRect(find.text(label)).top));
           }
           expect(tester.takeException(), isNull);
@@ -246,10 +255,16 @@ void main() {
 
   testWidgets('switch motion obeys saved and system reduced-motion preferences', (tester) async {
     for (final animations in [false, true]) {
-      await tester.pumpWidget(MaterialApp(home: Scaffold(body: MediaQuery(
-        data: MediaQueryData(disableAnimations: animations),
-        child: M3eExpressiveSwitch(value: true, onChanged: (_) {}, semanticLabel: 'Animations', animationsEnabled: !animations),
-      ))));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MediaQuery(
+              data: MediaQueryData(disableAnimations: animations),
+              child: M3eExpressiveSwitch(value: true, onChanged: (_) {}, semanticLabel: 'Animations', animationsEnabled: !animations),
+            ),
+          ),
+        ),
+      );
       for (final element in find.byType(AnimatedContainer).evaluate()) {
         expect((element.widget as AnimatedContainer).duration, Duration.zero);
       }

@@ -302,8 +302,11 @@ class M3eSettingsRow extends StatelessWidget {
         );
         final leading = M3eSettingsIcon(icon: icon);
         final trailingWidth = (preferredTrailingWidth ?? constraints.maxWidth * 0.4).clamp(48.0, constraints.maxWidth).toDouble();
-        final minimumInlineWidth = M3eTokens.settingsIconContainerSize + M3eTokens.standardGap * 2 +
-            M3eTokens.settingsRowMinimumLabelWidth * MediaQuery.textScalerOf(context).scale(1) + trailingWidth;
+        final minimumInlineWidth =
+            M3eTokens.settingsIconContainerSize +
+            M3eTokens.standardGap * 2 +
+            M3eTokens.settingsRowMinimumLabelWidth * MediaQuery.textScalerOf(context).scale(1) +
+            trailingWidth;
         final trailingSlot = ConstrainedBox(
           constraints: BoxConstraints(
             minWidth: M3eTokens.settingsRowControlMinimumSize,
@@ -431,48 +434,48 @@ class _M3eSelectionCardState extends State<M3eSelectionCard> {
       duration: motionAllowed ? M3eTokens.microMotion : Duration.zero,
       curve: M3eTokens.expressiveCurve,
       child: Semantics(
-      button: true,
-      label: label,
-      child: Card(
-        margin: EdgeInsets.zero,
-        elevation: 0,
-        color: background,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
-          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.55)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          onHighlightChanged: (pressed) => setState(() => _pressed = pressed),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: M3eSelectionCard._horizontalPadding, vertical: M3eSelectionCard._verticalPadding),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: emphasized ? scheme.primaryContainer : scheme.primaryFixed,
-                    shape: BoxShape.circle,
+        button: true,
+        label: label,
+        child: Card(
+          margin: EdgeInsets.zero,
+          elevation: 0,
+          color: background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
+            side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.55)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            onHighlightChanged: (pressed) => setState(() => _pressed = pressed),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: M3eSelectionCard._horizontalPadding, vertical: M3eSelectionCard._verticalPadding),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: emphasized ? scheme.primaryContainer : scheme.primaryFixed,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(M3eSelectionCard._iconPadding),
+                      child: Icon(icon, size: M3eSelectionCard._iconSize, color: emphasized ? foreground : scheme.onPrimaryFixed),
+                    ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(M3eSelectionCard._iconPadding),
-                    child: Icon(icon, size: M3eSelectionCard._iconSize, color: emphasized ? foreground : scheme.onPrimaryFixed),
+                  const SizedBox(height: M3eTokens.compactGap),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: foreground,
+                    ),
                   ),
-                ),
-                const SizedBox(height: M3eTokens.compactGap),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: foreground,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -495,72 +498,82 @@ class M3eFloatingNavigationBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final motionAllowed = animationsEnabled && !MediaQuery.disableAnimationsOf(context);
     final surfaceOpacity = !motionAllowed ? 0.9 : (scheme.brightness == Brightness.dark ? 0.4 : 0.55);
-    return LayoutBuilder(builder: (context, constraints) {
-      final padding = MediaQuery.paddingOf(context);
-      final width = constraints.maxWidth - math.max(16, padding.left) - math.max(16, padding.right);
-      final destinationWidth = (width - M3eTokens.navigationInset * 2) / destinations.length;
-      var destinationHeight = 48.0;
-      for (var index = 0; index < destinations.length; index++) {
-        final painter = TextPainter(
-          text: TextSpan(text: destinations[index].label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: index == selectedIndex ? FontWeight.w700 : FontWeight.w500)),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-          maxLines: 2,
-          ellipsis: '…',
-        )..layout(maxWidth: math.max(0, destinationWidth - 20));
-        destinationHeight = math.max(destinationHeight, 25 + 4 + painter.height + 20);
-        painter.dispose();
-      }
-      final height = destinationHeight + M3eTokens.navigationInset * 2;
-      // Keep the highlight and outer border concentric even when large labels
-      // make a destination taller than it is wide.
-      final outerRadius = math.min(height / 2, destinationWidth / 2 + M3eTokens.navigationInset);
-      final borderRadius = BorderRadius.circular(outerRadius);
-      final navigationSurface = SizedBox(
-        height: height,
-        child: DecoratedBox(
-          key: const ValueKey('m3e-floating-navigation-surface'),
-          decoration: BoxDecoration(
-            color: M3eTokens.elevatedSurface(scheme, opacity: surfaceOpacity),
-            borderRadius: borderRadius,
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(M3eTokens.navigationInset),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var index = 0; index < destinations.length; index++)
-                  Expanded(child: _M3eNavigationDestination(
-                    destination: destinations[index], selected: index == selectedIndex,
-                    animationsEnabled: motionAllowed, cornerRadius: outerRadius - M3eTokens.navigationInset,
-                  )),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final padding = MediaQuery.paddingOf(context);
+        final width = constraints.maxWidth - math.max(16, padding.left) - math.max(16, padding.right);
+        final destinationWidth = (width - M3eTokens.navigationInset * 2) / destinations.length;
+        var destinationHeight = 48.0;
+        for (var index = 0; index < destinations.length; index++) {
+          final painter = TextPainter(
+            text: TextSpan(
+              text: destinations[index].label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: index == selectedIndex ? FontWeight.w700 : FontWeight.w500),
+            ),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 2,
+            ellipsis: '…',
+          )..layout(maxWidth: math.max(0, destinationWidth - 20));
+          destinationHeight = math.max(destinationHeight, 25 + 4 + painter.height + 20);
+          painter.dispose();
+        }
+        final height = destinationHeight + M3eTokens.navigationInset * 2;
+        // Keep the highlight and outer border concentric even when large labels
+        // make a destination taller than it is wide.
+        final outerRadius = math.min(height / 2, destinationWidth / 2 + M3eTokens.navigationInset);
+        final borderRadius = BorderRadius.circular(outerRadius);
+        final navigationSurface = SizedBox(
+          height: height,
+          child: DecoratedBox(
+            key: const ValueKey('m3e-floating-navigation-surface'),
+            decoration: BoxDecoration(
+              color: M3eTokens.elevatedSurface(scheme, opacity: surfaceOpacity),
+              borderRadius: borderRadius,
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(M3eTokens.navigationInset),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var index = 0; index < destinations.length; index++)
+                    Expanded(
+                      child: _M3eNavigationDestination(
+                        destination: destinations[index],
+                        selected: index == selectedIndex,
+                        animationsEnabled: motionAllowed,
+                        cornerRadius: outerRadius - M3eTokens.navigationInset,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-      final clippedSurface = ClipRRect(
-        key: const ValueKey('m3e-floating-navigation-clip'),
-        borderRadius: borderRadius,
-        child: motionAllowed ? BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: M3eTokens.frostedBlurSigma, sigmaY: M3eTokens.frostedBlurSigma),
-          child: navigationSurface,
-        ) : navigationSurface,
-      );
-      return SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            boxShadow: [BoxShadow(color: scheme.shadow.withValues(alpha: 0.18), blurRadius: 22, offset: const Offset(0, 10))],
+        );
+        final clippedSurface = ClipRRect(
+          key: const ValueKey('m3e-floating-navigation-clip'),
+          borderRadius: borderRadius,
+          child: motionAllowed
+              ? BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: M3eTokens.frostedBlurSigma, sigmaY: M3eTokens.frostedBlurSigma),
+                  child: navigationSurface,
+                )
+              : navigationSurface,
+        );
+        return SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: borderRadius,
+              boxShadow: [BoxShadow(color: scheme.shadow.withValues(alpha: 0.18), blurRadius: 22, offset: const Offset(0, 10))],
+            ),
+            child: clippedSurface,
           ),
-          child: clippedSurface,
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 

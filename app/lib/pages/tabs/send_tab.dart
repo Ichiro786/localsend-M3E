@@ -114,7 +114,10 @@ class SendTab extends StatelessWidget {
                       children: [
                         Text(t.sendTab.title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(height: M3eTokens.compactGap),
-                        Text(t.sendTab.subtitle, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                        Text(
+                          t.sendTab.subtitle,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
                       ],
                     ),
                   ),
@@ -247,7 +250,10 @@ class SendTab extends StatelessWidget {
                           children: [
                             Text(t.sendTab.nearbyDevices, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
                             const SizedBox(height: M3eTokens.compactGap / 2),
-                            Text(t.sendTab.devicesAvailable(count: vm.nearbyDevices.length), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                            Text(
+                              t.sendTab.devicesAvailable(count: vm.nearbyDevices.length),
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
                           ],
                         ),
                       ),

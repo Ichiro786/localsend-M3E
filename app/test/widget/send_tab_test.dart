@@ -468,10 +468,25 @@ void main() {
   testWidgets('selected-file actions wrap without covering the title at large localized text sizes', (tester) async {
     await tester.runAsync(() => LocaleSettings.setLocale(AppLocale.de));
     _setViewport(tester, const Size(320, 1100));
-    final file = const CrossFile(name: 'notes.txt', fileType: FileType.text, size: 5, thumbnail: null, asset: null,
-      path: null, bytes: null, lastModified: null, lastAccessed: null);
+    final file = const CrossFile(
+      name: 'notes.txt',
+      fileType: FileType.text,
+      size: 5,
+      thumbnail: null,
+      asset: null,
+      path: null,
+      bytes: null,
+      lastModified: null,
+      lastAccessed: null,
+    );
     final device = _fixtureDevice();
-    await tester.pumpWidget(_sendApp(device: device, vm: _fixtureVm(device, [], selectedFiles: [file]), textScale: 2.4));
+    await tester.pumpWidget(
+      _sendApp(
+        device: device,
+        vm: _fixtureVm(device, [], selectedFiles: [file]),
+        textScale: 2.4,
+      ),
+    );
     await tester.pumpAndSettle();
     final title = tester.getRect(find.text(t.sendTab.selection.title));
     final clear = tester.getRect(find.byIcon(Icons.close));
@@ -484,53 +499,64 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('Send layout, uniform picker colors, and all picker callbacks survive the UI stress matrix', (tester) async {
-    const scenarios = [
-      (390.0, 844.0, 1.0, AppLocale.en, ColorMode.custom, Brightness.light, 'light'),
-      (390.0, 844.0, 1.0, AppLocale.en, ColorMode.custom, Brightness.dark, 'dark'),
-      (390.0, 844.0, 1.0, AppLocale.en, ColorMode.oled, Brightness.dark, 'amoled'),
-      (320.0, 640.0, 2.0, AppLocale.mn, ColorMode.oled, Brightness.dark, 'compact-large-text'),
-      (390.0, 844.0, 1.6, AppLocale.ar, ColorMode.custom, Brightness.dark, 'rtl-large-text'),
-      (600.0, 900.0, 1.8, AppLocale.en, ColorMode.custom, Brightness.light, 'tablet-large-text'),
-    ];
-    for (final (width, height, scale, locale, mode, brightness, name) in scenarios) {
-      await tester.runAsync(() => LocaleSettings.setLocale(locale));
-      _setViewport(tester, Size(width, height));
-      final device = _fixtureDevice();
-      final picked = <FilePickerOption>[];
-      final theme = getTheme(mode, Colors.deepOrange, brightness, null);
-      await tester.pumpWidget(_sendApp(device: device, vm: _fixtureVm(device, []), theme: theme, textScale: scale,
-        withNavigation: true, onPickerOption: (option) async => picked.add(option)));
-      await tester.pumpAndSettle();
-      expect(tester.getRect(find.byType(PageView)).bottom, tester.getRect(find.byType(Scaffold)).bottom);
-      for (final option in pickerOptions) {
-        final card = find.byKey(ValueKey(option));
-        final icon = find.descendant(of: card, matching: find.byType(Icon));
-        final label = find.descendant(of: card, matching: find.byType(Text));
-        expect(tester.widget<Icon>(icon).color, theme.colorScheme.onPrimaryFixed);
-        expect(tester.getRect(icon).bottom, lessThan(tester.getRect(label).top));
-        expect(tester.getRect(label).bottom, lessThanOrEqualTo(tester.getRect(card).bottom));
-      }
-      expect(find.text(t.sendTab.devicesAvailable(count: 1)), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await captureUiReview(tester, 'send-$name');
-      for (final option in pickerOptions) {
-        final card = find.byKey(ValueKey(option));
-        await tester.ensureVisible(card);
+  testWidgets(
+    'Send layout, uniform picker colors, and all picker callbacks survive the UI stress matrix',
+    (tester) async {
+      const scenarios = [
+        (390.0, 844.0, 1.0, AppLocale.en, ColorMode.custom, Brightness.light, 'light'),
+        (390.0, 844.0, 1.0, AppLocale.en, ColorMode.custom, Brightness.dark, 'dark'),
+        (390.0, 844.0, 1.0, AppLocale.en, ColorMode.oled, Brightness.dark, 'amoled'),
+        (320.0, 640.0, 2.0, AppLocale.mn, ColorMode.oled, Brightness.dark, 'compact-large-text'),
+        (390.0, 844.0, 1.6, AppLocale.ar, ColorMode.custom, Brightness.dark, 'rtl-large-text'),
+        (600.0, 900.0, 1.8, AppLocale.en, ColorMode.custom, Brightness.light, 'tablet-large-text'),
+      ];
+      for (final (width, height, scale, locale, mode, brightness, name) in scenarios) {
+        await tester.runAsync(() => LocaleSettings.setLocale(locale));
+        _setViewport(tester, Size(width, height));
+        final device = _fixtureDevice();
+        final picked = <FilePickerOption>[];
+        final theme = getTheme(mode, Colors.deepOrange, brightness, null);
+        await tester.pumpWidget(
+          _sendApp(
+            device: device,
+            vm: _fixtureVm(device, []),
+            theme: theme,
+            textScale: scale,
+            withNavigation: true,
+            onPickerOption: (option) async => picked.add(option),
+          ),
+        );
         await tester.pumpAndSettle();
-        await tester.tap(card);
+        expect(tester.getRect(find.byType(PageView)).bottom, tester.getRect(find.byType(Scaffold)).bottom);
+        for (final option in pickerOptions) {
+          final card = find.byKey(ValueKey(option));
+          final icon = find.descendant(of: card, matching: find.byType(Icon));
+          final label = find.descendant(of: card, matching: find.byType(Text));
+          expect(tester.widget<Icon>(icon).color, theme.colorScheme.onPrimaryFixed);
+          expect(tester.getRect(icon).bottom, lessThan(tester.getRect(label).top));
+          expect(tester.getRect(label).bottom, lessThanOrEqualTo(tester.getRect(card).bottom));
+        }
+        expect(find.text(t.sendTab.devicesAvailable(count: 1)), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await captureUiReview(tester, 'send-$name');
+        for (final option in pickerOptions) {
+          final card = find.byKey(ValueKey(option));
+          await tester.ensureVisible(card);
+          await tester.pumpAndSettle();
+          await tester.tap(card);
+          await tester.pumpAndSettle();
+        }
+        expect(picked, pickerOptions);
+        await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -10000));
         await tester.pumpAndSettle();
+        final troubleshoot = find.text(t.troubleshootPage.title).last;
+        final nav = tester.getRect(find.byType(M3eFloatingNavigationBar));
+        expect(tester.getRect(troubleshoot).bottom, lessThanOrEqualTo(nav.top));
+        expect(tester.takeException(), isNull);
       }
-      expect(picked, pickerOptions);
-      await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -10000));
-      await tester.pumpAndSettle();
-      final troubleshoot = find.text(t.troubleshootPage.title).last;
-      final nav = tester.getRect(find.byType(M3eFloatingNavigationBar));
-      expect(tester.getRect(troubleshoot).bottom, lessThanOrEqualTo(nav.top));
-      expect(tester.takeException(), isNull);
-    }
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
 }
 
 void _setViewport(WidgetTester tester, Size size) {
@@ -594,18 +620,31 @@ Widget _sendApp({
           child: Directionality(textDirection: LocaleSettings.currentLocale == AppLocale.ar ? TextDirection.rtl : TextDirection.ltr, child: child!),
         );
       },
-      home: withNavigation ? RepaintBoundary(
-        key: uiReviewBoundaryKey,
-        child: M3eExpressiveBackground(emphasis: M3eBackgroundEmphasis.send, child: Scaffold(
-          extendBody: true, backgroundColor: Colors.transparent,
-          body: SafeArea(bottom: false, child: PageView(children: [SendTab(onPickerOption: onPickerOption)])),
-          bottomNavigationBar: M3eFloatingNavigationBar(selectedIndex: 1, animationsEnabled: false, destinations: [
-            M3eNavigationDestination(icon: Icons.download_for_offline_outlined, label: t.receiveTab.title, onTap: () {}),
-            M3eNavigationDestination(icon: Icons.send, label: t.sendTab.title, onTap: () {}),
-            M3eNavigationDestination(icon: Icons.settings, label: t.settingsTab.title, onTap: () {}),
-          ]),
-        )),
-      ) : Scaffold(body: SendTab(onPickerOption: onPickerOption)),
+      home: withNavigation
+          ? RepaintBoundary(
+              key: uiReviewBoundaryKey,
+              child: M3eExpressiveBackground(
+                emphasis: M3eBackgroundEmphasis.send,
+                child: Scaffold(
+                  extendBody: true,
+                  backgroundColor: Colors.transparent,
+                  body: SafeArea(
+                    bottom: false,
+                    child: PageView(children: [SendTab(onPickerOption: onPickerOption)]),
+                  ),
+                  bottomNavigationBar: M3eFloatingNavigationBar(
+                    selectedIndex: 1,
+                    animationsEnabled: false,
+                    destinations: [
+                      M3eNavigationDestination(icon: Icons.download_for_offline_outlined, label: t.receiveTab.title, onTap: () {}),
+                      M3eNavigationDestination(icon: Icons.send, label: t.sendTab.title, onTap: () {}),
+                      M3eNavigationDestination(icon: Icons.settings, label: t.settingsTab.title, onTap: () {}),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : Scaffold(body: SendTab(onPickerOption: onPickerOption)),
     ),
   );
 }

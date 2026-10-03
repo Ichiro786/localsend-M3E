@@ -68,26 +68,26 @@ void main() {
 
     for (final (appAnimationsEnabled, disableAnimations, shouldMove) in scenarios) {
       for (final oled in [false, true]) {
-      await tester.pumpWidget(
-        _backgroundApp(
-          emphasis: M3eBackgroundEmphasis.receive,
-          scheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark).copyWith(surface: oled ? Colors.black : null),
-          animationsEnabled: appAnimationsEnabled,
-          disableAnimations: disableAnimations,
-        ),
-      );
-      await tester.pump();
-      final before = tester.getTopLeft(find.byKey(_primaryBlobKey));
-      await tester.pump(const Duration(seconds: 4));
-      final after = tester.getTopLeft(find.byKey(_primaryBlobKey));
+        await tester.pumpWidget(
+          _backgroundApp(
+            emphasis: M3eBackgroundEmphasis.receive,
+            scheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark).copyWith(surface: oled ? Colors.black : null),
+            animationsEnabled: appAnimationsEnabled,
+            disableAnimations: disableAnimations,
+          ),
+        );
+        await tester.pump();
+        final before = tester.getTopLeft(find.byKey(_primaryBlobKey));
+        await tester.pump(const Duration(seconds: 4));
+        final after = tester.getTopLeft(find.byKey(_primaryBlobKey));
 
-      if (shouldMove) {
-        expect((after - before).distance, greaterThan(1));
-      } else {
-        expect((after - before).distance, lessThan(0.1));
-      }
-      expect(tester.widget<ColoredBox>(find.byKey(_primaryBlobKey)).color.a, greaterThan(0));
-      expect(tester.takeException(), isNull);
+        if (shouldMove) {
+          expect((after - before).distance, greaterThan(1));
+        } else {
+          expect((after - before).distance, lessThan(0.1));
+        }
+        expect(tester.widget<ColoredBox>(find.byKey(_primaryBlobKey)).color.a, greaterThan(0));
+        expect(tester.takeException(), isNull);
       }
     }
   });
