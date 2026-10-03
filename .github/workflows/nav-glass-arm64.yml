@@ -61,7 +61,8 @@ jobs:
             test/widget/m3e_components_test.dart \
             test/widget/send_tab_test.dart \
             test/widget/settings_tab_test.dart \
-            test/widget/receive_tab_test.dart
+            test/widget/receive_tab_test.dart \
+            test/widget/home_page_navigation_test.dart
 
       - name: Upload formatted UI sources for review
         if: always()
@@ -84,8 +85,14 @@ jobs:
             app/test/widget/send_tab_test.dart
             app/test/widget/settings_tab_test.dart
             app/test/widget/receive_tab_test.dart
+            app/test/widget/home_page_navigation_test.dart
           if-no-files-found: error
           retention-days: 14
+
+      - name: Reproduce and verify Home navigation
+        if: success() || failure()
+        working-directory: app
+        run: flutter test test/widget/home_page_navigation_test.dart --reporter expanded
 
       - name: Analyze (app)
         working-directory: app
