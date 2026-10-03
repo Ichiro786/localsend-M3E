@@ -72,6 +72,9 @@ class _HomePageState extends State<HomePage> with Refena {
   Widget build(BuildContext context) {
     Translations.of(context); // rebuild on locale change
     final vm = context.watch(homePageControllerProvider);
+    // Watch from this element's build, not the descendant ResponsiveBuilder.
+    // A metrics-only rebuild of that child must not replace our tab subscription.
+    final animationsEnabled = context.watch(animationProvider);
 
     return DropTarget(
       onDragEntered: (_) {
@@ -182,7 +185,7 @@ class _HomePageState extends State<HomePage> with Refena {
               bottomNavigationBar: sizingInformation.isMobile
                   ? M3eFloatingNavigationBar(
                       selectedIndex: vm.currentTab.index,
-                      animationsEnabled: context.watch(animationProvider),
+                      animationsEnabled: animationsEnabled,
                       destinations: HomeTab.values
                           .map(
                             (tab) => M3eNavigationDestination(

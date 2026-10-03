@@ -9,6 +9,8 @@ import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/persistence/color_mode.dart';
 import 'package:localsend_app/model/send_mode.dart';
 import 'package:localsend_app/model/state/network_state.dart';
+import 'package:localsend_app/model/state/server/receive_session_state.dart';
+import 'package:localsend_app/model/state/server/receiving_file.dart';
 import 'package:localsend_app/model/state/nearby_devices_state.dart';
 import 'package:localsend_app/model/state/server/server_state.dart';
 import 'package:localsend_app/model/state/settings_state.dart';
@@ -17,7 +19,11 @@ import 'package:localsend_app/pages/home_page_controller.dart';
 import 'package:localsend_app/pages/tabs/send_tab_vm.dart';
 import 'package:localsend_app/pages/tabs/settings_tab_controller.dart';
 import 'package:localsend_app/pages/tabs/settings_tab_vm.dart';
+import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:localsend_app/provider/device_info_provider.dart';
+import 'package:localsend_app/provider/receive_history_provider.dart';
+import 'package:localsend_app/provider/network/server/server_utils.dart';
+import 'package:localsend_app/provider/network/server/controller/receive_controller.dart';
 import 'package:localsend_app/provider/favorites_provider.dart';
 import 'package:localsend_app/provider/local_ip_provider.dart';
 import 'package:localsend_app/provider/logging/discovery_logs_provider.dart';
@@ -29,6 +35,12 @@ import 'package:localsend_app/provider/version_provider.dart';
 import 'package:localsend_app/widget/m3e/m3e_components.dart';
 import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/device.dart';
+import 'package:localsend_isolates/model/dto/file_dto.dart';
+import 'package:localsend_isolates/model/file_type.dart';
+import 'package:localsend_isolates/model/session_status.dart';
+import 'package:mockito/mockito.dart';
+import 'package:refena_flutter/addons.dart';
+import 'package:routerino/routerino.dart';
 import 'package:localsend_isolates/model/device_info_result.dart';
 import 'package:localsend_isolates/model/dto/multicast_dto.dart';
 import 'package:localsend_isolates/model/stored_security_context.dart';
@@ -76,6 +88,148 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('navigation survives repeated resumes and interruptions during motion', (tester) async {
+    _setViewport(tester);
+    final container = _navigationContainer();
+    addTearDown(container.disposeContainer);
+    addTearDown(() => tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed));
+    await tester.pumpWidget(_navigationApp(container));
+    await _finishNavigation(tester);
+    final controller = container.read(homePageControllerProvider).controller;
+    for (var cycle = 0; cycle < 9; cycle++) {
+      final target = HomeTab.values[(cycle + 1) % 3];
+      await tester.tap(find.descendant(of: find.byType(M3eFloatingNavigationBar), matching: find.text(target.label)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(controller.page, isNot(closeTo(target.index.toDouble(), 0.001)));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.view.physicalSize = Size(390, cycle.isEven ? 820 : 844);
+      await tester.pump(const Duration(seconds: 1));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await _finishNavigation(tester);
+      _expectNavigation(tester, container, target);
+      expect(container.read(homePageControllerProvider).controller, same(controller));
+      expect(controller.positions, hasLength(1));
+      expect(tester.takeException(), isNull);
+    }
+    // Rapid reversals must settle on the last request, including a programmatic action.
+    for (final target in [HomeTab.send, HomeTab.receive, HomeTab.settings, HomeTab.send]) {
+      container.redux(homePageControllerProvider).dispatch(ChangeTabAction(target));
+      await tester.pump(const Duration(milliseconds: 35));
+    }
+    await _finishNavigation(tester);
+    _expectNavigation(tester, container, HomeTab.send);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('mobile navigation and rail remain synchronized through viewport and motion changes', (tester) async {
+    _setViewport(tester);
+    final container = _navigationContainer();
+    addTearDown(container.disposeContainer);
+    await tester.pumpWidget(_navigationApp(container));
+    await _finishNavigation(tester);
+    await _tapTab(tester, HomeTab.settings);
+    tester.view.physicalSize = const Size(900, 844);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(M3eFloatingNavigationBar), findsNothing);
+    container.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.send));
+    await _finishNavigation(tester);
+    expect(tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex, HomeTab.send.index);
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pump();
+    await tester.pump();
+    _expectNavigation(tester, container, HomeTab.send);
+    container.notifier(sleepProvider).state = true;
+    await _finishNavigation(tester);
+    await _tapTab(tester, HomeTab.receive);
+    _expectNavigation(tester, container, HomeTab.receive);
+    expect(tester.widget<M3eFloatingNavigationBar>(find.byType(M3eFloatingNavigationBar)).animationsEnabled, isFalse);
+    container.notifier(sleepProvider).state = false;
+    await _finishNavigation(tester);
+    await _tapTab(tester, HomeTab.settings);
+    _expectNavigation(tester, container, HomeTab.settings);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('route push and pop during tab motion preserve one Home PageView', (tester) async {
+    _setViewport(tester);
+    final container = _navigationContainer();
+    addTearDown(container.disposeContainer);
+    await tester.pumpWidget(_navigationApp(container));
+    await _finishNavigation(tester);
+    final controller = container.read(homePageControllerProvider).controller;
+    container.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.settings));
+    await tester.pump(const Duration(milliseconds: 60));
+    unawaited(container.read(navigationProvider).key.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Detail')))));
+    await _finishNavigation(tester);
+    container.read(navigationProvider).key.currentState!.pop();
+    await _finishNavigation(tester);
+    _expectNavigation(tester, container, HomeTab.settings);
+    expect(controller.positions, hasLength(1));
+    await _tapTab(tester, HomeTab.send);
+    _expectNavigation(tester, container, HomeTab.send);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('Quick Save completion returns to the existing Home without duplicate PageViews', (tester) async {
+    _setViewport(tester);
+    final container = _navigationContainer(initialSettings: _fixtureSettings(quickSave: true));
+    addTearDown(container.disposeContainer);
+    await tester.pumpWidget(_navigationApp(container));
+    await _finishNavigation(tester);
+    await _tapTab(tester, HomeTab.send);
+    final homeState = tester.state(find.byType(HomePage));
+    final controller = container.read(homePageControllerProvider).controller;
+    ServerState? serverState = ServerState(alias: 'Fixture', port: 53317, https: false, webSendState: null, webUpload: false, webPin: null,
+      session: ReceiveSessionState(sessionId: 'quick-save', status: SessionStatus.sending, sender: Device.empty, senderAlias: 'Fixture',
+        files: {'file': ReceivingFile(file: FileDto(id: 'file', fileName: 'file.bin', size: 10, fileType: FileType.other,
+          hash: null, preview: null, metadata: null), token: 'token', desiredName: 'file.bin', path: null, savedToGallery: false, errorMessage: null)},
+        startTime: null, endTime: null, destinationDirectory: '', cacheDirectory: '', saveToGallery: false, createdDirectories: {}));
+    final receiver = ReceiveController(ServerUtils(refFunc: () => container, getState: () => serverState!,
+      getStateOrNull: () => serverState, setState: (builder) => serverState = builder(serverState)));
+    // A null path exercises completion without an OpenFileDialog/native file launch.
+    await receiver.onFileUploadResult(HttpServerFileUploadResultEvent(sessionId: 'quick-save', fileId: 'file', path: null,
+      savedToGallery: false, error: null));
+    await _finishNavigation(tester);
+    expect(serverState!.session, isNull);
+    expect(find.byType(HomePage, skipOffstage: false), findsOneWidget);
+    expect(tester.state(find.byType(HomePage)), same(homeState));
+    expect(controller.positions, hasLength(1));
+    _expectNavigation(tester, container, HomeTab.receive);
+    await _tapTab(tester, HomeTab.settings);
+    _expectNavigation(tester, container, HomeTab.settings);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('tab requests before PageView attachment select the initial page safely', (tester) async {
+    final container = RefenaContainer();
+    addTearDown(container.disposeContainer);
+    container.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.send));
+    container.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.settings));
+    final vm = container.read(homePageControllerProvider);
+    await tester.pumpWidget(MaterialApp(home: PageView(controller: vm.controller, children: const [Text('Receive'), Text('Send'), Text('Settings')])));
+    await _finishNavigation(tester);
+    expect(vm.currentTab, HomeTab.settings);
+    expect(vm.controller.page, 2);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('Home PageController is disposed with its owning provider', () {
+    final container = RefenaContainer();
+    final controller = container.read(homePageControllerProvider).controller;
+    container.disposeContainer();
+    expect(() => controller.addListener(() {}), throwsFlutterError);
+  });
 }
 
 Future<void> _finishNavigation(WidgetTester tester) async {
@@ -95,22 +249,43 @@ void _expectNavigation(WidgetTester tester, RefenaContainer container, HomeTab t
   expect(state.currentTab, tab);
   expect(state.controller.page, closeTo(tab.index.toDouble(), 0.001));
   expect(tester.widget<M3eFloatingNavigationBar>(find.byType(M3eFloatingNavigationBar)).selectedIndex, tab.index);
+  final pill = find.byKey(const ValueKey('m3e-navigation-selected-pill'));
+  expect(find.descendant(of: pill, matching: find.text(tab.label)), findsOneWidget);
+  final decorated = tester.widget<DecoratedBox>(find.descendant(of: pill, matching: find.byType(DecoratedBox)).first);
+  final scheme = Theme.of(tester.element(pill)).colorScheme;
+  expect((decorated.decoration as BoxDecoration).color, scheme.primaryContainer);
 }
 
-Widget _navigationApp(RefenaContainer container) => RefenaScope.withContainer(
+void _setViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Widget _navigationApp(RefenaContainer container) {
+  Routerino.navigatorKey = container.read(navigationProvider).key;
+  return RefenaScope.withContainer(
   container: container,
+  ownsContainer: false,
   child: TranslationProvider(child: MaterialApp(
+    navigatorKey: container.read(navigationProvider).key,
     theme: getTheme(ColorMode.oled, Colors.teal, Brightness.dark, null),
-    home: const HomePage(initialTab: HomeTab.receive, appStart: false),
+    home: RouterinoHome(builder: () => const HomePage(initialTab: HomeTab.receive, appStart: false)),
   )),
 );
+}
 
-RefenaContainer _navigationContainer() {
-  final settings = _FixtureSettingsService(_fixtureSettings());
+RefenaContainer _navigationContainer({SettingsState? initialSettings}) {
+  final settings = _FixtureSettingsService(initialSettings ?? _fixtureSettings());
+  final persistence = MockPersistenceService();
+  when(persistence.isSaveToHistory()).thenReturn(false);
+  when(persistence.getReceiveHistory()).thenReturn([]);
   final info = DeviceInfoResult(deviceType: DeviceType.desktop, deviceModel: null, androidSdkInt: 28);
   return RefenaContainer(
     overrides: [
       settingsProvider.overrideWithNotifier((_) => settings),
+      receiveHistoryProvider.overrideWithNotifier((_) => ReceiveHistoryService(persistence)),
       serverProvider.overrideWithNotifier((_) => _BootstrapServer()),
       localIpProvider.overrideWithNotifier((_) => _NavigationLocalIpService(settings)),
       deviceInfoProvider.overrideWithBuilder((_) => info),
