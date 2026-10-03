@@ -356,11 +356,23 @@ void main() {
         expect(find.bySemanticsLabel(t.sendTab.sendMode), findsOneWidget);
         expect(
           tester.getSemantics(find.bySemanticsLabel(t.sendTab.manualSending)),
-          matchesSemantics(label: t.sendTab.manualSending, isButton: true, hasTapAction: true),
+          matchesSemantics(
+            label: t.sendTab.manualSending,
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasTapAction: true,
+          ),
         );
         expect(
           tester.getSemantics(find.bySemanticsLabel(t.dialogs.favoriteDialog.title)),
-          matchesSemantics(label: t.dialogs.favoriteDialog.title, isButton: true, hasTapAction: true),
+          matchesSemantics(
+            label: t.dialogs.favoriteDialog.title,
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasTapAction: true,
+          ),
         );
         expect(
           tester.getSemantics(find.bySemanticsLabel(t.sendTab.sendMode)),
@@ -516,7 +528,7 @@ void main() {
         _setViewport(tester, Size(width, height));
         final device = _fixtureDevice();
         final picked = <FilePickerOption>[];
-        final theme = getTheme(mode, Colors.deepOrange, brightness, null);
+        final theme = uiReviewTheme(getTheme(mode, Colors.deepOrange, brightness, null));
         await tester.pumpWidget(
           _sendApp(
             device: device,
@@ -539,15 +551,16 @@ void main() {
         }
         final grid = tester.getRect(find.byType(GridView));
         final lastTile = tester.getRect(find.byKey(ValueKey(pickerOptions.last)));
-        expect(grid.bottom, lastTile.bottom, reason: 'Nested grid must not repeat the navigation bottom inset');
+        expect(grid.bottom, closeTo(lastTile.bottom, 0.001), reason: 'Nested grid must not repeat the navigation bottom inset');
         expect(find.text(t.sendTab.devicesAvailable(count: 1)), findsOneWidget);
         expect(tester.takeException(), isNull);
         await captureUiReview(tester, 'send-$name');
         for (final option in pickerOptions) {
           final card = find.byKey(ValueKey(option));
-          await tester.ensureVisible(card);
+          final button = find.descendant(of: card, matching: find.byType(InkWell));
+          await tester.ensureVisible(button);
           await tester.pumpAndSettle();
-          await tester.tap(card);
+          await tester.tap(button);
           await tester.pumpAndSettle();
         }
         expect(picked, pickerOptions);

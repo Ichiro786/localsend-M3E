@@ -22,6 +22,15 @@ Future<void> loadUiReviewFonts() async {
   final iconFile = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
   icons.addFont(iconFile.readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
   await icons.load();
+  final fallback = FontLoader('UiReviewFallback');
+  final fallbackFile = File('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf');
+  fallback.addFont(fallbackFile.readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
+  await fallback.load();
+}
+
+ThemeData uiReviewTheme(ThemeData theme) {
+  if (!const bool.fromEnvironment('UI_REVIEW')) return theme;
+  return theme.copyWith(textTheme: theme.textTheme.apply(fontFamilyFallback: const ['UiReviewFallback']));
 }
 
 Future<void> captureUiReview(WidgetTester tester, String name) async {

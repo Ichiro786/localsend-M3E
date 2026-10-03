@@ -171,7 +171,7 @@ void main() {
           advancedSettings: advanced,
           alias: 'A very long device name that stays editable without covering its icons',
         );
-        final theme = getTheme(mode, Colors.deepOrange, brightness, null);
+        final theme = uiReviewTheme(getTheme(mode, Colors.deepOrange, brightness, null));
         await tester.pumpWidget(_settingsApp(_FixtureSettingsService(initial), textScale: scale, theme: theme, withNavigation: true));
         await tester.pumpAndSettle();
         expect(tester.getRect(find.byType(PageView)).bottom, tester.getRect(find.byType(Scaffold)).bottom);

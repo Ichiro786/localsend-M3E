@@ -178,6 +178,12 @@ ColorScheme _determineColorScheme(ColorMode mode, Color customColor, Brightness 
       brightness: Brightness.dark,
       dynamicSchemeVariant: DynamicSchemeVariant.monochrome,
       surface: Colors.black,
+      primaryFixed: const Color(0xFFD6D6D6),
+      primaryFixedDim: const Color(0xFFBDBDBD),
+      onPrimaryFixed: const Color(0xFF242424),
+      onPrimaryFixedVariant: const Color(0xFF3F3F3F),
+      primaryContainer: const Color(0xFF454545),
+      onPrimaryContainer: const Color(0xFFE5E5E5),
     ),
     ColorMode.yaru => throw 'Should reach here',
     ColorMode.custom => ColorScheme.fromSeed(
