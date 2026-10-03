@@ -9,6 +9,7 @@ import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:localsend_app/provider/local_ip_provider.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
+import 'package:localsend_app/util/ui/nav_bar_padding.dart';
 import 'package:localsend_app/widget/animations/initial_fade_transition.dart';
 import 'package:localsend_app/widget/column_list_view.dart';
 import 'package:localsend_app/widget/local_send_logo.dart';
@@ -69,6 +70,7 @@ class _ReceiveTabState extends State<ReceiveTab> {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
+                      padding: EdgeInsets.only(bottom: getNavBarPadding(context)),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 540),
                         child: Column(

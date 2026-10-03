@@ -1,0 +1,157 @@
+name: Nav glass checks and optimized ARM64 APK
+
+on:
+  push:
+    branches: [sesori/ui-feedback-round-apply]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.41.9"
+  ANDROID_PLATFORM: "android-36"
+  ANDROID_BUILD_TOOLS: "36.0.0"
+  ANDROID_NDK: "28.2.13676358"
+  ANDROID_CMAKE: "3.22.1"
+
+jobs:
+  validate-and-build:
+    name: Flutter checks and signed ARM64 release APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;${ANDROID_PLATFORM}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}" \
+            "ndk;${ANDROID_NDK}" \
+            "cmake;${ANDROID_CMAKE}"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Dependencies (app and pub workspace)
+        working-directory: app
+        run: flutter pub get
+
+      - name: Dependencies (cargokit build tool)
+        working-directory: packages/localsend_isolates/rust_builder/cargokit/build_tool
+        run: flutter pub get
+
+      - name: Check formatting of changed Dart files
+        working-directory: app
+        run: |
+          dart format --output=none --set-exit-if-changed \
+            lib/config/m3e_tokens.dart \
+            lib/pages/home_page.dart \
+            lib/pages/tabs/receive_tab.dart \
+            lib/widget/m3e/m3e_components.dart \
+            test/widget/m3e_components_test.dart \
+            test/widget/receive_tab_test.dart
+
+      - name: Analyze (app)
+        working-directory: app
+        run: flutter analyze
+
+      - name: Test (app)
+        working-directory: app
+        run: flutter test
+
+      - name: Test (localsend_isolates)
+        working-directory: packages/localsend_isolates
+        run: flutter test
+
+      - name: Prepare release signing
+        env:
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+          ANDROID_KEY_STORE: ${{ secrets.ANDROID_KEY_STORE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEY_PROPERTIES" ] || [ -z "$ANDROID_KEY_STORE" ]; then
+            echo 'Both Android release signing secrets are required.' >&2
+            exit 1
+          fi
+          printf '%s' "$ANDROID_KEY_PROPERTIES" | base64 --decode > app/android/key.properties
+          printf '%s' "$ANDROID_KEY_STORE" | base64 --decode > "$RUNNER_TEMP/localsend-nav-release.jks"
+          test -s "$RUNNER_TEMP/localsend-nav-release.jks"
+          grep -Eq '^keyAlias=.+$' app/android/key.properties
+          grep -Eq '^keyPassword=.+$' app/android/key.properties
+          grep -Eq '^storePassword=.+$' app/android/key.properties
+          sed -i "s#^storeFile=.*#storeFile=$RUNNER_TEMP/localsend-nav-release.jks#" app/android/key.properties
+
+      - name: Build optimized ARM64 release APK
+        working-directory: app
+        run: |
+          flutter build apk --release --target-platform android-arm64 --split-per-abi \
+            --tree-shake-icons --split-debug-info=build/symbols --no-pub
+
+      - name: Verify signature and ARM64-only native libraries
+        working-directory: app
+        run: |
+          set -euo pipefail
+          apk="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          test -s "$apk"
+          mapfile -t native_abis < <(unzip -Z1 "$apk" | awk -F/ '$1 == "lib" && NF >= 3 { print $2 }' | sort -u)
+          test "${#native_abis[@]}" -eq 1
+          test "${native_abis[0]}" = arm64-v8a
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          signature=$("$apksigner" verify --verbose --print-certs "$apk")
+          printf '%s\n' "$signature" | grep -Eq 'Verified using v[123] scheme.*: true'
+          if printf '%s\n' "$signature" | grep -Fq 'CN=Android Debug'; then
+            echo 'A release signing certificate is required.' >&2
+            exit 1
+          fi
+          badging=$("$aapt" dump badging "$apk")
+          printf '%s\n' "$badging" | grep -Fq "package: name='com.localsend.m3e'"
+          if printf '%s\n' "$badging" | grep -Fq 'application-debuggable'; then
+            echo 'The APK must not be debuggable.' >&2
+            exit 1
+          fi
+          cp "$apk" LocalSend-M3E-arm64-v8a-release.apk
+          sha256sum LocalSend-M3E-arm64-v8a-release.apk > LocalSend-M3E-arm64-v8a-release.apk.sha256
+          stat -c '%n %s bytes' LocalSend-M3E-arm64-v8a-release.apk
+          cat LocalSend-M3E-arm64-v8a-release.apk.sha256
+
+      - name: Upload optimized ARM64 APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: LocalSend-M3E-arm64-v8a-release
+          path: |
+            app/LocalSend-M3E-arm64-v8a-release.apk
+            app/LocalSend-M3E-arm64-v8a-release.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Dart debug symbols
+        uses: actions/upload-artifact@v6
+        with:
+          name: LocalSend-M3E-arm64-v8a-symbols
+          path: app/build/symbols/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove temporary signing files
+        if: always()
+        run: rm -f app/android/key.properties "$RUNNER_TEMP/localsend-nav-release.jks"

@@ -1,9 +1,11 @@
+import 'dart:ui' as ui;
 import 'dart:ui' show SemanticsAction, Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsend_app/config/m3e_tokens.dart';
 import 'package:localsend_app/widget/m3e/m3e_components.dart';
+import 'package:localsend_app/widget/responsive_list_view.dart';
 
 void main() {
   testWidgets('expressive switch exposes state and toggles through its 48 dp hit region', (tester) async {
@@ -73,7 +75,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('floating navigation leaves the app body behind its transparent slot in both themes', (tester) async {
+  testWidgets('floating navigation lets content scroll behind the glass and clear the bar in both themes', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     const pageBackground = Color(0xFF00A896);
     for (final brightness in [Brightness.light, Brightness.dark]) {
       await tester.pumpWidget(
@@ -92,10 +98,22 @@ void main() {
           home: Scaffold(
             extendBody: true,
             backgroundColor: Colors.transparent,
-            body: const SizedBox.expand(
-              child: ColoredBox(
-                key: ValueKey('page-body-background'),
-                color: pageBackground,
+            body: SafeArea(
+              bottom: false,
+              child: PageView(
+                key: ValueKey(brightness),
+                children: const [
+                  ResponsiveListView(
+                    padding: EdgeInsets.fromLTRB(16, 28, 16, 36),
+                    children: [
+                      SizedBox(
+                        height: 1400,
+                        child: ColoredBox(key: ValueKey('page-body-background'), color: pageBackground),
+                      ),
+                      SizedBox(key: ValueKey('last-page-item'), height: 64, child: Text('Last item')),
+                    ],
+                  ),
+                ],
               ),
             ),
             bottomNavigationBar: M3eFloatingNavigationBar(
@@ -110,10 +128,18 @@ void main() {
         ),
       );
 
-      expect(
-        tester.getRect(find.byKey(const ValueKey('page-body-background'))).bottom,
-        tester.getRect(find.byType(Scaffold)).bottom,
-      );
+      final scaffoldRect = tester.getRect(find.byType(Scaffold));
+      final navigationRect = tester.getRect(find.byType(M3eFloatingNavigationBar));
+      expect(tester.getRect(find.byType(PageView)).bottom, scaffoldRect.bottom);
+      expect(tester.getRect(find.byType(SingleChildScrollView)).bottom, scaffoldRect.bottom);
+      expect(tester.getRect(find.byKey(const ValueKey('page-body-background'))).contains(navigationRect.center), isTrue);
+
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      final lastItemRect = tester.getRect(find.byKey(const ValueKey('last-page-item')));
+      expect(lastItemRect.top, greaterThanOrEqualTo(0));
+      expect(lastItemRect.bottom, lessThanOrEqualTo(navigationRect.top));
+      expect(tester.takeException(), isNull);
       final safeArea = tester.widget<SafeArea>(
         find.descendant(of: find.byType(M3eFloatingNavigationBar), matching: find.byType(SafeArea)),
       );
@@ -144,6 +170,10 @@ void main() {
 
       expect(find.byType(M3eFloatingNavigationBar), findsOneWidget);
       expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(
+        tester.widget<BackdropFilter>(find.byType(BackdropFilter)).filter,
+        ui.ImageFilter.blur(sigmaX: M3eTokens.frostedBlurSigma, sigmaY: M3eTokens.frostedBlurSigma),
+      );
       for (final label in ['Receive', 'Send', 'Settings']) {
         expect(find.text(label), findsOneWidget);
         final target = find.ancestor(of: find.text(label), matching: find.byType(InkWell));
@@ -198,7 +228,7 @@ void main() {
       );
       expect(
         (blurredSurface.decoration as BoxDecoration).color,
-        M3eTokens.elevatedSurface(scheme, opacity: 0.76),
+        M3eTokens.elevatedSurface(scheme, opacity: scheme.brightness == Brightness.dark ? 0.4 : 0.55),
       );
       final selectedPill = tester.widget<AnimatedContainer>(
         find.byKey(const ValueKey('m3e-navigation-selected-pill')),
@@ -214,7 +244,7 @@ void main() {
       );
       expect(
         (fallbackSurface.decoration as BoxDecoration).color,
-        M3eTokens.elevatedSurface(scheme, opacity: 0.94),
+        M3eTokens.elevatedSurface(scheme, opacity: 0.9),
       );
       expect(
         tester.widget<AnimatedContainer>(find.byKey(const ValueKey('m3e-navigation-selected-pill'))).duration,

@@ -143,6 +143,9 @@ class _HomePageState extends State<HomePage> with Refena {
                     ),
                   Expanded(
                     child: SafeArea(
+                      // Keep the mobile viewport behind the floating bar. Scroll views
+                      // use the Scaffold bottom inset as trailing content padding.
+                      bottom: !sizingInformation.isMobile,
                       left: sizingInformation.isMobile,
                       child: Stack(
                         children: [

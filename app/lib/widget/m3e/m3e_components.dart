@@ -425,10 +425,11 @@ class M3eFloatingNavigationBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final motionAllowed = animationsEnabled && !MediaQuery.of(context).disableAnimations;
     final borderRadius = BorderRadius.circular(M3eTokens.navigationRadius);
+    final surfaceOpacity = !motionAllowed ? 0.9 : (scheme.brightness == Brightness.dark ? 0.4 : 0.55);
     final navigationSurface = DecoratedBox(
       key: const ValueKey('m3e-floating-navigation-surface'),
       decoration: BoxDecoration(
-        color: M3eTokens.elevatedSurface(scheme, opacity: motionAllowed ? 0.76 : 0.94),
+        color: M3eTokens.elevatedSurface(scheme, opacity: surfaceOpacity),
         borderRadius: borderRadius,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
@@ -453,7 +454,7 @@ class M3eFloatingNavigationBar extends StatelessWidget {
       borderRadius: borderRadius,
       child: motionAllowed
           ? BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+              filter: ui.ImageFilter.blur(sigmaX: M3eTokens.frostedBlurSigma, sigmaY: M3eTokens.frostedBlurSigma),
               child: navigationSurface,
             )
           : navigationSurface,

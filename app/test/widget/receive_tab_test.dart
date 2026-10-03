@@ -155,6 +155,7 @@ class _ReceiveMobileShell extends StatelessWidget {
         extendBody: true,
         backgroundColor: Colors.transparent,
         body: SafeArea(
+          bottom: false,
           left: true,
           child: PageView(
             physics: const NeverScrollableScrollPhysics(),

@@ -8,6 +8,7 @@ abstract final class M3eTokens {
   static const double controlRadius = 16;
   static const double cardRadius = 28;
   static const double navigationRadius = 34;
+  static const double frostedBlurSigma = 28;
   static const double controlHeight = 56;
   static const double compactGap = 8;
   static const double standardGap = 12;
