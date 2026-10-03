@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 abstract final class M3eTokens {
   static const double controlRadius = 16;
   static const double cardRadius = 28;
-  static const double navigationRadius = 34;
+  // A pill radius clamps to half the height, including at larger text scales.
+  static const double navigationRadius = 999;
+  static const double navigationInset = 7;
   static const double frostedBlurSigma = 28;
   static const double controlHeight = 56;
   static const double compactGap = 8;
@@ -16,7 +18,8 @@ abstract final class M3eTokens {
   static const double settingsIconContainerSize = 44;
   static const double settingsIconSize = 24;
   static const double settingsRowControlMinimumSize = 48;
-  static const double settingsRowCompactBreakpoint = 360;
+  static const double settingsRowCompactBreakpoint = 320;
+  static const double settingsRowMinimumLabelWidth = 96;
   // Semantic motion tokens preserve the approved Phase 2 timings while giving
   // Phase 3 interactions one shared vocabulary.
   static const Duration microMotion = Duration(milliseconds: 140);

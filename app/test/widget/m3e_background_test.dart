@@ -9,7 +9,7 @@ const _primaryBlobKey = ValueKey('m3e-background-primary-blob');
 const _tertiaryBlobKey = ValueKey('m3e-background-tertiary-blob');
 
 void main() {
-  testWidgets('existing organic shapes use tab emphasis and remain black in OLED mode', (tester) async {
+  testWidgets('organic globes keep tab emphasis and remain visible and animated over an OLED black base', (tester) async {
     final scheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark);
     const emphases = [
       (M3eBackgroundEmphasis.receive, 0.26, 0.22),
@@ -47,14 +47,14 @@ void main() {
 
       expect(oledScheme.brightness, brightness);
       expect(tester.widget<ColoredBox>(find.byKey(_surfaceKey)).color, Colors.black);
-      expect(tester.widget<ColoredBox>(find.byKey(_primaryBlobKey)).color.a, 0.0);
-      expect(tester.widget<ColoredBox>(find.byKey(_tertiaryBlobKey)).color.a, 0.0);
+      expect(tester.widget<ColoredBox>(find.byKey(_primaryBlobKey)).color.a, greaterThan(0));
+      expect(tester.widget<ColoredBox>(find.byKey(_tertiaryBlobKey)).color.a, greaterThan(0));
 
       await tester.pump();
       final before = tester.getTopLeft(find.byKey(_primaryBlobKey));
       await tester.pump(const Duration(seconds: 4));
       final after = tester.getTopLeft(find.byKey(_primaryBlobKey));
-      expect((after - before).distance, lessThan(0.1), reason: 'OLED motion stays stopped for ${brightness.name} scheme brightness');
+      expect((after - before).distance, greaterThan(1), reason: 'OLED globes animate for ${brightness.name} scheme brightness');
     }
     expect(tester.takeException(), isNull);
   });
@@ -67,10 +67,11 @@ void main() {
     ];
 
     for (final (appAnimationsEnabled, disableAnimations, shouldMove) in scenarios) {
+      for (final oled in [false, true]) {
       await tester.pumpWidget(
         _backgroundApp(
           emphasis: M3eBackgroundEmphasis.receive,
-          scheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+          scheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark).copyWith(surface: oled ? Colors.black : null),
           animationsEnabled: appAnimationsEnabled,
           disableAnimations: disableAnimations,
         ),
@@ -85,7 +86,9 @@ void main() {
       } else {
         expect((after - before).distance, lessThan(0.1));
       }
+      expect(tester.widget<ColoredBox>(find.byKey(_primaryBlobKey)).color.a, greaterThan(0));
       expect(tester.takeException(), isNull);
+      }
     }
   });
 }

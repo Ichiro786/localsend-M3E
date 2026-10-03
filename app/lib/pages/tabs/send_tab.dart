@@ -5,6 +5,7 @@ import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/send_mode.dart';
 import 'package:localsend_app/pages/device_details_page.dart';
+import 'package:localsend_app/pages/receive_history_page.dart';
 import 'package:localsend_app/pages/selected_files_page.dart';
 import 'package:localsend_app/pages/tabs/send_tab_vm.dart';
 import 'package:localsend_app/pages/troubleshoot_page.dart';
@@ -46,9 +47,10 @@ class _SelectionGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 520 ? 3 : 2;
         final textScale = MediaQuery.textScalerOf(context).scale(1);
-        final designExtent = textScale > 1 ? 152 + (textScale - 1) * 28 : 152.0;
+        final columns = constraints.maxWidth >= (textScale > 1.3 ? 520 : 330) ? 3 : 2;
+        final baseExtent = columns == 3 ? 136.0 : 152.0;
+        final designExtent = baseExtent + (textScale > 1 ? (textScale - 1) * 28 : 0);
         final crossAxisSpacing = M3eTokens.standardGap;
         final cardWidth = (constraints.maxWidth - crossAxisSpacing * (columns - 1)) / columns;
         final tileExtent = pickerOptions.fold<double>(designExtent, (extent, option) {
@@ -72,6 +74,8 @@ class _SelectionGrid extends StatelessWidget {
           itemBuilder: (context, index) {
             final option = pickerOptions[index];
             return M3eSelectionCard(
+              key: ValueKey(option),
+              animationsEnabled: context.watch(animationProvider),
               icon: option.icon,
               label: option.label,
               onTap: () => onSelect(option),
@@ -84,7 +88,9 @@ class _SelectionGrid extends StatelessWidget {
 }
 
 class SendTab extends StatelessWidget {
-  const SendTab();
+  final Future<void> Function(FilePickerOption option)? onPickerOption;
+
+  const SendTab({this.onPickerOption, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -97,17 +103,38 @@ class SendTab extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             const SizedBox(height: 12),
-            if (vm.selectedFiles.isEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text(
-                  t.sendTab.selection.title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t.sendTab.title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: M3eTokens.compactGap),
+                        Text(t.sendTab.subtitle, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: M3eTokens.standardGap),
+                  M3eIconButton(
+                    tooltip: t.receiveHistoryPage.title,
+                    icon: Icons.history,
+                    onPressed: () async => context.push(() => const ReceiveHistoryPage()),
+                  ),
+                ],
               ),
-              const SizedBox(height: M3eTokens.standardGap),
+            ),
+            const SizedBox(height: 24),
+            if (vm.selectedFiles.isEmpty) ...[
               _SelectionGrid(
                 onSelect: (option) async {
+                  if (onPickerOption != null) {
+                    await onPickerOption!(option);
+                    return;
+                  }
                   await ref.global.dispatchAsync(
                     PickFileAction(
                       option: option,
@@ -133,14 +160,12 @@ class SendTab extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            t.sendTab.selection.title,
-                            style: Theme.of(context).textTheme.titleMedium,
+                          Expanded(
+                            child: Text(t.sendTab.selection.title, style: Theme.of(context).textTheme.titleMedium),
                           ),
-                          const Spacer(),
                           CustomIconButton(
                             onPressed: () => ref.redux(selectedSendingFilesProvider).dispatch(ClearSelectionAction()),
-                            child: Icon(Icons.close, color: Theme.of(context).colorScheme.secondary),
+                            child: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
                           const SizedBox(width: 5),
                         ],
@@ -164,8 +189,10 @@ class SendTab extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: M3eTokens.compactGap,
+                        runSpacing: M3eTokens.compactGap,
                         children: [
                           TextButton(
                             style: TextButton.styleFrom(
@@ -176,7 +203,6 @@ class SendTab extends StatelessWidget {
                             },
                             child: Text(t.general.edit),
                           ),
-                          const SizedBox(width: 15),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Theme.of(context).colorScheme.primary,
@@ -201,7 +227,6 @@ class SendTab extends StatelessWidget {
                             icon: const Icon(Icons.add),
                             label: Text(t.general.add),
                           ),
-                          const SizedBox(width: 15),
                         ],
                       ),
                     ],
@@ -217,9 +242,13 @@ class SendTab extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          t.sendTab.nearbyDevices,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(t.sendTab.nearbyDevices, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                            const SizedBox(height: M3eTokens.compactGap / 2),
+                            Text(t.sendTab.devicesAvailable(count: vm.nearbyDevices.length), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          ],
                         ),
                       ),
                       const SizedBox(width: M3eTokens.compactGap),
@@ -469,7 +498,7 @@ class _ScanButton extends StatelessWidget {
                 children: [
                   _RotatingSyncIcon(ip),
                   const SizedBox(width: 10),
-                  Text(ip),
+                  Flexible(child: Text(ip)),
                 ],
               ),
             ),
@@ -519,22 +548,7 @@ class _SecondarySendAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: tooltip,
-      onTap: onPressed,
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(icon),
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-        style: IconButton.styleFrom(
-          padding: const EdgeInsets.all(12),
-          shape: const CircleBorder(),
-        ),
-      ),
-    );
+    return M3eIconButton(icon: icon, onPressed: onPressed, tooltip: tooltip);
   }
 }
 

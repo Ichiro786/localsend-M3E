@@ -73,6 +73,7 @@ class _TextFieldWithActionsState extends State<TextFieldWithActions> {
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Text(
           widget.controller.text,
+          maxLines: 1,
           style: Theme.of(context).textTheme.titleMedium,
           overflow: TextOverflow.ellipsis,
         ),

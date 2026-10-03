@@ -1,9 +1,13 @@
-name: Nav glass checks and optimized ARM64 APK
+name: UI polish checks and optimized ARM64 APK
 
 on:
   push:
     branches: [sesori/ui-feedback-round-apply]
   workflow_dispatch:
+
+concurrency:
+  group: ui-polish-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -59,16 +63,49 @@ jobs:
         working-directory: packages/localsend_isolates/rust_builder/cargokit/build_tool
         run: flutter pub get
 
-      - name: Check formatting of changed Dart files
+      - name: Format and check UI files
         working-directory: app
         run: |
-          dart format --output=none --set-exit-if-changed \
+          dart format --set-exit-if-changed \
             lib/config/m3e_tokens.dart \
+            lib/config/theme.dart \
             lib/pages/home_page.dart \
+            lib/pages/tabs/send_tab.dart \
+            lib/pages/tabs/settings_tab.dart \
             lib/pages/tabs/receive_tab.dart \
+            lib/widget/m3e/m3e_background.dart \
             lib/widget/m3e/m3e_components.dart \
+            lib/widget/dialogs/text_field_with_actions.dart \
+            test/ui_review.dart \
+            test/widget/m3e_background_test.dart \
             test/widget/m3e_components_test.dart \
+            test/widget/send_tab_test.dart \
+            test/widget/settings_tab_test.dart \
             test/widget/receive_tab_test.dart
+
+      - name: Upload formatted UI sources for review
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: formatted-ui-sources
+          path: |
+            app/lib/config/m3e_tokens.dart
+            app/lib/config/theme.dart
+            app/lib/pages/home_page.dart
+            app/lib/pages/tabs/send_tab.dart
+            app/lib/pages/tabs/settings_tab.dart
+            app/lib/pages/tabs/receive_tab.dart
+            app/lib/widget/m3e/m3e_background.dart
+            app/lib/widget/m3e/m3e_components.dart
+            app/lib/widget/dialogs/text_field_with_actions.dart
+            app/test/ui_review.dart
+            app/test/widget/m3e_background_test.dart
+            app/test/widget/m3e_components_test.dart
+            app/test/widget/send_tab_test.dart
+            app/test/widget/settings_tab_test.dart
+            app/test/widget/receive_tab_test.dart
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Analyze (app)
         working-directory: app
@@ -76,7 +113,16 @@ jobs:
 
       - name: Test (app)
         working-directory: app
-        run: flutter test
+        run: flutter test --dart-define=UI_REVIEW=true
+
+      - name: Upload UI review renders
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-review-renders
+          path: app/build/ui-review/*.png
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Test (localsend_isolates)
         working-directory: packages/localsend_isolates

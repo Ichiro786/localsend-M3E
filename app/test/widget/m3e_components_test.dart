@@ -71,7 +71,7 @@ void main() {
     final resolvedTheme = Theme.of(tester.element(find.byType(M3eSectionCard)));
     expect(heading.style?.fontSize, resolvedTheme.textTheme.titleLarge?.fontSize);
     expect(heading.style?.fontWeight, FontWeight.w600);
-    expect(heading.style?.color, resolvedTheme.colorScheme.primary);
+    expect(heading.style?.color, resolvedTheme.colorScheme.onSurface);
     expect(tester.takeException(), isNull);
   });
 
@@ -191,8 +191,8 @@ void main() {
       expect(filterRect.height, lessThan(844 / 2));
 
       final selectedRect = tester.getRect(find.byKey(const ValueKey('m3e-navigation-selected-pill')));
-      expect(selectedRect.top - surfaceRect.top, greaterThanOrEqualTo(10));
-      expect(surfaceRect.bottom - selectedRect.bottom, greaterThanOrEqualTo(10));
+      expect(selectedRect.top - surfaceRect.top, greaterThanOrEqualTo(M3eTokens.navigationInset));
+      expect(surfaceRect.bottom - selectedRect.bottom, greaterThanOrEqualTo(M3eTokens.navigationInset));
 
       final selectedData = tester.getSemantics(find.text('Send')).getSemanticsData();
       expect(selectedData.label, 'Send');
@@ -205,6 +205,55 @@ void main() {
       expect(tester.takeException(), isNull);
     } finally {
       semantics.dispose();
+    }
+  });
+
+  testWidgets('navigation highlight follows the reference pill curvature at large text sizes and in RTL', (tester) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final scale in [1.0, 1.8, 2.4]) {
+      for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+        for (var selected = 0; selected < 3; selected++) {
+          await tester.pumpWidget(_navigationHost(
+            scheme: ColorScheme.fromSeed(seedColor: Colors.orange, brightness: Brightness.dark),
+            animationsEnabled: false, tapped: [], selectedIndex: selected, textScale: scale, direction: direction,
+          ));
+          await tester.pumpAndSettle();
+          final surfaceFinder = find.byKey(const ValueKey('m3e-floating-navigation-surface'));
+          final pillFinder = find.byKey(const ValueKey('m3e-navigation-selected-pill'));
+          final surface = tester.getRect(surfaceFinder);
+          final pill = tester.getRect(pillFinder);
+          final surfaceDecoration = tester.widget<DecoratedBox>(surfaceFinder).decoration as BoxDecoration;
+          final pillDecoration = tester.widget<AnimatedContainer>(pillFinder).decoration as BoxDecoration;
+          final outerCurve = (surfaceDecoration.borderRadius! as BorderRadius).toRRect(surface).scaleRadii();
+          final innerCurve = (pillDecoration.borderRadius! as BorderRadius).toRRect(pill).scaleRadii();
+          expect(outerCurve.tlRadiusY, lessThanOrEqualTo(surface.height / 2));
+          expect(innerCurve.tlRadiusY, lessThanOrEqualTo(pill.height / 2));
+          expect(pill.top - surface.top, closeTo(M3eTokens.navigationInset, 0.01));
+          expect(surface.bottom - pill.bottom, closeTo(M3eTokens.navigationInset, 0.01));
+          expect(outerCurve.tlRadiusY - innerCurve.tlRadiusY, closeTo(M3eTokens.navigationInset, 0.01));
+          for (final label in ['Receive', 'Send', 'Settings']) {
+            final icon = find.descendant(of: find.ancestor(of: find.text(label), matching: find.byType(AnimatedContainer)), matching: find.byType(Icon));
+            expect(tester.getRect(icon).bottom, lessThanOrEqualTo(tester.getRect(find.text(label)).top));
+          }
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
+  });
+
+  testWidgets('switch motion obeys saved and system reduced-motion preferences', (tester) async {
+    for (final animations in [false, true]) {
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: MediaQuery(
+        data: MediaQueryData(disableAnimations: animations),
+        child: M3eExpressiveSwitch(value: true, onChanged: (_) {}, semanticLabel: 'Animations', animationsEnabled: !animations),
+      ))));
+      for (final element in find.byType(AnimatedContainer).evaluate()) {
+        expect((element.widget as AnimatedContainer).duration, Duration.zero);
+      }
+      expect(tester.widget<AnimatedAlign>(find.byType(AnimatedAlign)).duration, Duration.zero);
     }
   });
 
@@ -270,6 +319,8 @@ Widget _navigationHost({
   required List<String> tapped,
   int selectedIndex = 1,
   bool disableAnimations = false,
+  double textScale = 1,
+  TextDirection direction = TextDirection.ltr,
 }) {
   return MaterialApp(
     theme: ThemeData(useMaterial3: true, colorScheme: scheme),
@@ -280,8 +331,9 @@ Widget _navigationHost({
           padding: const EdgeInsets.only(bottom: 24),
           viewPadding: const EdgeInsets.only(bottom: 24),
           disableAnimations: disableAnimations,
+          textScaler: TextScaler.linear(textScale),
         ),
-        child: child!,
+        child: Directionality(textDirection: direction, child: child!),
       );
     },
     home: Scaffold(

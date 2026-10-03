@@ -1,23 +1,61 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:localsend_app/config/m3e_tokens.dart';
 
+class M3eMotionAwareCrossFade extends StatelessWidget {
+  final bool motionAllowed;
+  final CrossFadeState crossFadeState;
+  final Duration duration;
+  final Alignment alignment;
+  final Widget firstChild;
+  final Widget secondChild;
+
+  const M3eMotionAwareCrossFade({
+    required this.motionAllowed,
+    required this.crossFadeState,
+    required this.duration,
+    required this.alignment,
+    required this.firstChild,
+    required this.secondChild,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!motionAllowed) {
+      return crossFadeState == CrossFadeState.showSecond ? secondChild : firstChild;
+    }
+
+    return AnimatedCrossFade(
+      crossFadeState: crossFadeState,
+      duration: duration,
+      alignment: alignment,
+      firstChild: firstChild,
+      secondChild: secondChild,
+    );
+  }
+}
+
 class M3eExpressiveSwitch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
   final String semanticLabel;
+  final bool animationsEnabled;
 
   const M3eExpressiveSwitch({
     required this.value,
     required this.onChanged,
     required this.semanticLabel,
+    this.animationsEnabled = true,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final motionDuration = animationsEnabled && !MediaQuery.disableAnimationsOf(context) ? M3eTokens.shortMotion : Duration.zero;
     final enabled = onChanged != null;
     final trackColor = value ? scheme.primary : scheme.surfaceContainerHighest;
     final thumbColor = value ? scheme.onPrimary : scheme.outline;
@@ -39,7 +77,7 @@ class M3eExpressiveSwitch extends StatelessWidget {
             height: 48,
             child: Center(
               child: AnimatedContainer(
-                duration: M3eTokens.shortMotion,
+                duration: motionDuration,
                 curve: M3eTokens.expressiveCurve,
                 width: 52,
                 height: 32,
@@ -52,17 +90,17 @@ class M3eExpressiveSwitch extends StatelessWidget {
                   ),
                 ),
                 child: AnimatedAlign(
-                  duration: M3eTokens.shortMotion,
+                  duration: motionDuration,
                   curve: M3eTokens.expressiveCurve,
                   alignment: value ? Alignment.centerRight : Alignment.centerLeft,
                   child: AnimatedContainer(
-                    duration: M3eTokens.shortMotion,
+                    duration: motionDuration,
                     curve: M3eTokens.expressiveCurve,
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(color: thumbColor, shape: BoxShape.circle),
                     child: AnimatedSwitcher(
-                      duration: M3eTokens.shortMotion,
+                      duration: motionDuration,
                       child: Icon(
                         value ? Icons.check : Icons.close,
                         key: ValueKey(value),
@@ -128,12 +166,14 @@ class M3eSectionCard extends StatelessWidget {
   final List<Widget> children;
   final EdgeInsetsGeometry padding;
   final Widget? leading;
+  final String? supportingText;
 
   const M3eSectionCard({
     required this.title,
     required this.children,
     this.padding = const EdgeInsets.fromLTRB(22, 22, 22, 10),
     this.leading,
+    this.supportingText,
     super.key,
   });
 
@@ -164,14 +204,18 @@ class M3eSectionCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: scheme.primary,
+                      color: scheme.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            if (supportingText != null) ...[
+              const SizedBox(height: M3eTokens.compactGap),
+              Text(supportingText!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+            ],
+            const SizedBox(height: 18),
             ...children,
           ],
         ),
@@ -221,6 +265,7 @@ class M3eSettingsRow extends StatelessWidget {
   final Widget trailing;
   final String semanticLabel;
   final VoidCallback? onTap;
+  final double? preferredTrailingWidth;
 
   const M3eSettingsRow({
     required this.icon,
@@ -229,6 +274,7 @@ class M3eSettingsRow extends StatelessWidget {
     required this.semanticLabel,
     this.supportingText,
     this.onTap,
+    this.preferredTrailingWidth,
     super.key,
   });
 
@@ -255,15 +301,19 @@ class M3eSettingsRow extends StatelessWidget {
           ],
         );
         final leading = M3eSettingsIcon(icon: icon);
+        final trailingWidth = (preferredTrailingWidth ?? constraints.maxWidth * 0.4).clamp(48.0, constraints.maxWidth).toDouble();
+        final minimumInlineWidth = M3eTokens.settingsIconContainerSize + M3eTokens.standardGap * 2 +
+            M3eTokens.settingsRowMinimumLabelWidth * MediaQuery.textScalerOf(context).scale(1) + trailingWidth;
         final trailingSlot = ConstrainedBox(
           constraints: BoxConstraints(
             minWidth: M3eTokens.settingsRowControlMinimumSize,
             minHeight: M3eTokens.settingsRowControlMinimumSize,
+            maxWidth: trailingWidth,
           ),
           child: trailing,
         );
 
-        if (constraints.maxWidth < M3eTokens.settingsRowCompactBreakpoint) {
+        if (constraints.maxWidth <= M3eTokens.settingsRowCompactBreakpoint || constraints.maxWidth < minimumInlineWidth) {
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -322,7 +372,7 @@ class M3eSettingsRow extends StatelessWidget {
   }
 }
 
-class M3eSelectionCard extends StatelessWidget {
+class M3eSelectionCard extends StatefulWidget {
   static const double _horizontalPadding = 10;
   static const double _verticalPadding = 12;
   static const double _iconPadding = 14;
@@ -332,12 +382,14 @@ class M3eSelectionCard extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool emphasized;
+  final bool animationsEnabled;
 
   const M3eSelectionCard({
     required this.icon,
     required this.label,
     required this.onTap,
     this.emphasized = false,
+    this.animationsEnabled = true,
     super.key,
   });
 
@@ -358,11 +410,27 @@ class M3eSelectionCard extends StatelessWidget {
   }
 
   @override
+  State<M3eSelectionCard> createState() => _M3eSelectionCardState();
+}
+
+class _M3eSelectionCardState extends State<M3eSelectionCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final icon = widget.icon;
+    final label = widget.label;
+    final onTap = widget.onTap;
+    final emphasized = widget.emphasized || _pressed;
+    final motionAllowed = widget.animationsEnabled && !MediaQuery.disableAnimationsOf(context);
     final background = emphasized ? scheme.primaryContainer.withValues(alpha: 0.78) : scheme.surfaceContainerLow.withValues(alpha: 0.84);
     final foreground = emphasized ? scheme.onPrimaryContainer : scheme.onSurface;
-    return Semantics(
+    return AnimatedScale(
+      scale: _pressed && motionAllowed ? 0.96 : 1,
+      duration: motionAllowed ? M3eTokens.microMotion : Duration.zero,
+      curve: M3eTokens.expressiveCurve,
+      child: Semantics(
       button: true,
       label: label,
       child: Card(
@@ -376,19 +444,20 @@ class M3eSelectionCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
+          onHighlightChanged: (pressed) => setState(() => _pressed = pressed),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding, vertical: _verticalPadding),
+            padding: const EdgeInsets.symmetric(horizontal: M3eSelectionCard._horizontalPadding, vertical: M3eSelectionCard._verticalPadding),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: emphasized ? 0.3 : 0.14),
+                    color: emphasized ? scheme.primaryContainer : scheme.primaryFixed,
                     shape: BoxShape.circle,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(_iconPadding),
-                    child: Icon(icon, size: _iconSize, color: emphasized ? foreground : scheme.primary),
+                    padding: const EdgeInsets.all(M3eSelectionCard._iconPadding),
+                    child: Icon(icon, size: M3eSelectionCard._iconSize, color: emphasized ? foreground : scheme.onPrimaryFixed),
                   ),
                 ),
                 const SizedBox(height: M3eTokens.compactGap),
@@ -403,6 +472,7 @@ class M3eSelectionCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -423,60 +493,74 @@ class M3eFloatingNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final motionAllowed = animationsEnabled && !MediaQuery.of(context).disableAnimations;
-    final borderRadius = BorderRadius.circular(M3eTokens.navigationRadius);
+    final motionAllowed = animationsEnabled && !MediaQuery.disableAnimationsOf(context);
     final surfaceOpacity = !motionAllowed ? 0.9 : (scheme.brightness == Brightness.dark ? 0.4 : 0.55);
-    final navigationSurface = DecoratedBox(
-      key: const ValueKey('m3e-floating-navigation-surface'),
-      decoration: BoxDecoration(
-        color: M3eTokens.elevatedSurface(scheme, opacity: surfaceOpacity),
-        borderRadius: borderRadius,
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
-        child: Row(
-          children: [
-            for (var index = 0; index < destinations.length; index++)
-              Expanded(
-                child: _M3eNavigationDestination(
-                  destination: destinations[index],
-                  selected: index == selectedIndex,
-                  animationsEnabled: motionAllowed,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-    final clippedSurface = ClipRRect(
-      key: const ValueKey('m3e-floating-navigation-clip'),
-      borderRadius: borderRadius,
-      child: motionAllowed
-          ? BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: M3eTokens.frostedBlurSigma, sigmaY: M3eTokens.frostedBlurSigma),
-              child: navigationSurface,
-            )
-          : navigationSurface,
-    );
-
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          boxShadow: [
-            BoxShadow(
-              color: scheme.shadow.withValues(alpha: 0.18),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
+    return LayoutBuilder(builder: (context, constraints) {
+      final padding = MediaQuery.paddingOf(context);
+      final width = constraints.maxWidth - math.max(16, padding.left) - math.max(16, padding.right);
+      final destinationWidth = (width - M3eTokens.navigationInset * 2) / destinations.length;
+      var destinationHeight = 48.0;
+      for (var index = 0; index < destinations.length; index++) {
+        final painter = TextPainter(
+          text: TextSpan(text: destinations[index].label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: index == selectedIndex ? FontWeight.w700 : FontWeight.w500)),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 2,
+          ellipsis: '…',
+        )..layout(maxWidth: math.max(0, destinationWidth - 20));
+        destinationHeight = math.max(destinationHeight, 25 + 4 + painter.height + 20);
+        painter.dispose();
+      }
+      final height = destinationHeight + M3eTokens.navigationInset * 2;
+      // Keep the highlight and outer border concentric even when large labels
+      // make a destination taller than it is wide.
+      final outerRadius = math.min(height / 2, destinationWidth / 2 + M3eTokens.navigationInset);
+      final borderRadius = BorderRadius.circular(outerRadius);
+      final navigationSurface = SizedBox(
+        height: height,
+        child: DecoratedBox(
+          key: const ValueKey('m3e-floating-navigation-surface'),
+          decoration: BoxDecoration(
+            color: M3eTokens.elevatedSurface(scheme, opacity: surfaceOpacity),
+            borderRadius: borderRadius,
+            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(M3eTokens.navigationInset),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var index = 0; index < destinations.length; index++)
+                  Expanded(child: _M3eNavigationDestination(
+                    destination: destinations[index], selected: index == selectedIndex,
+                    animationsEnabled: motionAllowed, cornerRadius: outerRadius - M3eTokens.navigationInset,
+                  )),
+              ],
             ),
-          ],
+          ),
         ),
-        child: clippedSurface,
-      ),
-    );
+      );
+      final clippedSurface = ClipRRect(
+        key: const ValueKey('m3e-floating-navigation-clip'),
+        borderRadius: borderRadius,
+        child: motionAllowed ? BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: M3eTokens.frostedBlurSigma, sigmaY: M3eTokens.frostedBlurSigma),
+          child: navigationSurface,
+        ) : navigationSurface,
+      );
+      return SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: borderRadius,
+            boxShadow: [BoxShadow(color: scheme.shadow.withValues(alpha: 0.18), blurRadius: 22, offset: const Offset(0, 10))],
+          ),
+          child: clippedSurface,
+        ),
+      );
+    });
   }
 }
 
@@ -496,11 +580,13 @@ class _M3eNavigationDestination extends StatelessWidget {
   final M3eNavigationDestination destination;
   final bool selected;
   final bool animationsEnabled;
+  final double cornerRadius;
 
   const _M3eNavigationDestination({
     required this.destination,
     required this.selected,
     required this.animationsEnabled,
+    required this.cornerRadius,
   });
 
   @override
@@ -517,7 +603,7 @@ class _M3eNavigationDestination extends StatelessWidget {
         message: destination.label,
         child: InkWell(
           onTap: destination.onTap,
-          borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
+          borderRadius: BorderRadius.circular(cornerRadius),
           child: AnimatedContainer(
             key: selected ? const ValueKey('m3e-navigation-selected-pill') : null,
             duration: animationsEnabled ? M3eTokens.standardMotion : Duration.zero,
@@ -525,9 +611,10 @@ class _M3eNavigationDestination extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
               color: selected ? scheme.primaryContainer : Colors.transparent,
-              borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
+              borderRadius: BorderRadius.circular(cornerRadius),
             ),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedSwitcher(
@@ -542,7 +629,8 @@ class _M3eNavigationDestination extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   destination.label,
-                  maxLines: 1,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,

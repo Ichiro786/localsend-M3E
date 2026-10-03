@@ -65,6 +65,14 @@ ThemeData getTheme(ColorMode colorMode, Color customColor, Brightness brightness
         TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
       ),
     ),
+    popupMenuTheme: PopupMenuThemeData(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(M3eTokens.cardRadius),
+        side: M3eTokens.outline(colorScheme),
+      ),
+      color: M3eTokens.elevatedSurface(colorScheme, opacity: 0.96),
+      elevation: 3,
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: colorScheme.surfaceContainerHigh,

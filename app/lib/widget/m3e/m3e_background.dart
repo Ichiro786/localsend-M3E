@@ -59,8 +59,8 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
     final animations = context.ref.watch(animationProvider);
     final scheme = Theme.of(context).colorScheme;
     final isOled = scheme.surface == Colors.black;
-    final prominence = isOled ? 0.0 : widget.emphasis.prominence;
-    final motionAllowed = animations && !MediaQuery.of(context).disableAnimations && !isOled;
+    final prominence = widget.emphasis.prominence;
+    final motionAllowed = animations && !MediaQuery.of(context).disableAnimations;
     _syncAnimation(motionAllowed);
 
     final size = MediaQuery.sizeOf(context);
@@ -83,7 +83,8 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
                 colorKey: const ValueKey('m3e-background-primary-blob'),
                 width: size.width * 0.86,
                 height: size.height * 0.58,
-                color: scheme.primaryContainer.withValues(alpha: 0.26 * prominence),
+                color: (isOled ? scheme.onSurface : scheme.primaryContainer).withValues(alpha: (isOled ? 0.16 : 0.26) * prominence),
+                phase: progress,
                 rotation: -0.12 + math.sin(progress * 0.61) * 0.025,
                 scale: 1.0 + math.sin(progress * 0.47) * 0.025,
               ),
@@ -95,7 +96,8 @@ class _M3eExpressiveBackgroundState extends State<M3eExpressiveBackground> with 
                 colorKey: const ValueKey('m3e-background-tertiary-blob'),
                 width: size.width * 0.78,
                 height: size.height * 0.54,
-                color: scheme.tertiaryContainer.withValues(alpha: 0.22 * prominence),
+                color: (isOled ? scheme.onSurface : scheme.tertiaryContainer).withValues(alpha: (isOled ? 0.12 : 0.22) * prominence),
+                phase: progress + math.pi,
                 rotation: 0.14 + math.cos(progress * 0.52) * 0.03,
                 scale: 1.0 + math.cos(progress * 0.39) * 0.03,
               ),
@@ -116,6 +118,7 @@ class _M3eBlob extends StatelessWidget {
   final Color color;
   final double rotation;
   final double scale;
+  final double phase;
 
   const _M3eBlob({
     this.colorKey,
@@ -124,6 +127,7 @@ class _M3eBlob extends StatelessWidget {
     required this.color,
     required this.rotation,
     required this.scale,
+    required this.phase,
   });
 
   @override
@@ -134,7 +138,7 @@ class _M3eBlob extends StatelessWidget {
         scale: scale,
         child: RepaintBoundary(
           child: ClipPath(
-            clipper: const _OrganicBlobClipper(),
+            clipper: _OrganicBlobClipper(phase),
             child: ColoredBox(
               key: colorKey,
               color: color,
@@ -148,14 +152,17 @@ class _M3eBlob extends StatelessWidget {
 }
 
 class _OrganicBlobClipper extends CustomClipper<Path> {
-  const _OrganicBlobClipper();
+  final double phase;
+
+  const _OrganicBlobClipper(this.phase);
 
   @override
   Path getClip(Size size) {
+    final drift = math.sin(phase) * 0.035;
     final path = Path();
     path.moveTo(size.width * 0.18, size.height * 0.18);
     path.cubicTo(
-      size.width * 0.36,
+      size.width * (0.36 + drift),
       -size.height * 0.04,
       size.width * 0.76,
       size.height * 0.02,
@@ -165,13 +172,13 @@ class _OrganicBlobClipper extends CustomClipper<Path> {
     path.cubicTo(
       size.width * 1.04,
       size.height * 0.49,
-      size.width * 0.84,
+      size.width * (0.84 - drift),
       size.height * 0.84,
       size.width * 0.58,
       size.height * 0.91,
     );
     path.cubicTo(
-      size.width * 0.31,
+      size.width * (0.31 + drift),
       size.height * 1.01,
       size.width * 0.04,
       size.height * 0.79,
@@ -191,5 +198,5 @@ class _OrganicBlobClipper extends CustomClipper<Path> {
   }
 
   @override
-  bool shouldReclip(_OrganicBlobClipper oldClipper) => false;
+  bool shouldReclip(_OrganicBlobClipper oldClipper) => phase != oldClipper.phase;
 }

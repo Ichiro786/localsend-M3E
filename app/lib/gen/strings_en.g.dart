@@ -230,6 +230,9 @@ class Translations$sendTab$en {
   /// en: 'Send'
   String get title => 'Send';
 
+  /// en: 'Select what you want to send'
+  String get subtitle => 'Select what you want to send';
+
   late final Translations$sendTab$selection$en selection = Translations$sendTab$selection$en.internal(_root);
   late final Translations$sendTab$picker$en picker = Translations$sendTab$picker$en.internal(_root);
 
@@ -238,6 +241,15 @@ class Translations$sendTab$en {
 
   /// en: 'Nearby devices'
   String get nearbyDevices => 'Nearby devices';
+
+  /// en: '(one) {{count} device available} (other) {{count} devices available}'
+  String devicesAvailable({required num count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+    count,
+    one: '${count} device available',
+    other: '${count} devices available',
+  );
+
+  late final Translations$sendTab$platforms$en platforms = Translations$sendTab$platforms$en.internal(_root);
 
   /// en: 'This Device'
   String get thisDevice => 'This Device';
@@ -274,6 +286,9 @@ class Translations$settingsTab$en {
   /// en: 'Settings'
   String get title => 'Settings';
 
+  /// en: 'Customize LocalSend to your preferences'
+  String get subtitle => 'Customize LocalSend to your preferences';
+
   late final Translations$settingsTab$general$en general = Translations$settingsTab$general$en.internal(_root);
   late final Translations$settingsTab$receive$en receive = Translations$settingsTab$receive$en.internal(_root);
   late final Translations$settingsTab$send$en send = Translations$settingsTab$send$en.internal(_root);
@@ -282,6 +297,9 @@ class Translations$settingsTab$en {
 
   /// en: 'Advanced settings'
   String get advancedSettings => 'Advanced settings';
+
+  /// en: 'Show additional network and device options'
+  String get advancedSettingsDescription => 'Show additional network and device options';
 }
 
 // Path: troubleshootPage
@@ -1031,6 +1049,30 @@ class Translations$sendTab$picker$en {
   String get clipboard => 'Paste';
 }
 
+// Path: sendTab.platforms
+class Translations$sendTab$platforms$en {
+  Translations$sendTab$platforms$en.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// en: 'Mobile'
+  String get mobile => 'Mobile';
+
+  /// en: 'Desktop'
+  String get desktop => 'Desktop';
+
+  /// en: 'Web'
+  String get web => 'Web';
+
+  /// en: 'Headless'
+  String get headless => 'Headless';
+
+  /// en: 'Server'
+  String get server => 'Server';
+}
+
 // Path: sendTab.sendModes
 class Translations$sendTab$sendModes$en {
   Translations$sendTab$sendModes$en.internal(this._root);
@@ -1060,8 +1102,14 @@ class Translations$settingsTab$general$en {
   /// en: 'General'
   String get title => 'General';
 
+  /// en: 'Appearance, language and behavior'
+  String get subtitle => 'Appearance, language and behavior';
+
   /// en: 'Theme'
   String get brightness => 'Theme';
+
+  /// en: 'Follow system or use dark/light theme'
+  String get brightnessDescription => 'Follow system or use dark/light theme';
 
   late final Translations$settingsTab$general$brightnessOptions$en brightnessOptions = Translations$settingsTab$general$brightnessOptions$en.internal(
     _root,
@@ -1070,10 +1118,16 @@ class Translations$settingsTab$general$en {
   /// en: 'Color'
   String get color => 'Color';
 
+  /// en: 'Choose your accent color'
+  String get colorDescription => 'Choose your accent color';
+
   late final Translations$settingsTab$general$colorOptions$en colorOptions = Translations$settingsTab$general$colorOptions$en.internal(_root);
 
   /// en: 'Language'
   String get language => 'Language';
+
+  /// en: 'App language'
+  String get languageDescription => 'App language';
 
   late final Translations$settingsTab$general$languageOptions$en languageOptions = Translations$settingsTab$general$languageOptions$en.internal(
     _root,
@@ -1085,20 +1139,38 @@ class Translations$settingsTab$general$en {
   /// en: 'Save window position after exit'
   String get saveWindowPlacementWindows => 'Save window position after exit';
 
+  /// en: 'Restore the window's last position when LocalSend opens'
+  String get saveWindowPlacementDescription => 'Restore the window\'s last position when LocalSend opens';
+
   /// en: 'Minimize to the System Tray/Menu Bar when closing'
   String get minimizeToTray => 'Minimize to the System Tray/Menu Bar when closing';
+
+  /// en: 'Keep LocalSend running in the tray or menu bar when the window closes'
+  String get minimizeToTrayDescription => 'Keep LocalSend running in the tray or menu bar when the window closes';
 
   /// en: 'Autostart after login'
   String get launchAtStartup => 'Autostart after login';
 
+  /// en: 'Start LocalSend automatically after you sign in'
+  String get launchAtStartupDescription => 'Start LocalSend automatically after you sign in';
+
   /// en: 'Autostart: Start hidden'
   String get launchMinimized => 'Autostart: Start hidden';
+
+  /// en: 'Start automatically with the window hidden'
+  String get launchMinimizedDescription => 'Start automatically with the window hidden';
 
   /// en: 'Show LocalSend in context menu'
   String get showInContextMenu => 'Show LocalSend in context menu';
 
+  /// en: 'Add LocalSend to supported system context menus'
+  String get showInContextMenuDescription => 'Add LocalSend to supported system context menus';
+
   /// en: 'Animations'
   String get animations => 'Animations';
+
+  /// en: 'Enable smooth animations'
+  String get animationsDescription => 'Enable smooth animations';
 }
 
 // Path: settingsTab.receive
@@ -1112,20 +1184,38 @@ class Translations$settingsTab$receive$en {
   /// en: 'Receive'
   String get title => 'Receive';
 
+  /// en: 'Configure how you receive files'
+  String get subtitle => 'Configure how you receive files';
+
   /// en: 'Quick Save'
   String get quickSave => _root.general.quickSave;
+
+  /// en: 'Automatically accept file requests from anyone on your local network and save the received files'
+  String get quickSaveDescription => 'Automatically accept file requests from anyone on your local network and save the received files';
 
   /// en: 'Quick Save for "Favorites"'
   String get quickSaveFromFavorites => _root.general.quickSaveFromFavorites;
 
+  /// en: 'Automatically accept and save incoming files from your favorite devices'
+  String get quickSaveFromFavoritesDescription => 'Automatically accept and save incoming files from your favorite devices';
+
   /// en: 'Require PIN'
   String get requirePin => _root.webSharePage.requirePin;
+
+  /// en: 'Require a PIN before accepting files'
+  String get requirePinDescription => 'Require a PIN before accepting files';
 
   /// en: 'Auto Finish'
   String get autoFinish => 'Auto Finish';
 
+  /// en: 'Finish receiving once all files arrive'
+  String get autoFinishDescription => 'Finish receiving once all files arrive';
+
   /// en: 'Save to folder'
   String get destination => 'Save to folder';
+
+  /// en: 'Choose where to save received files'
+  String get destinationDescription => 'Choose where to save received files';
 
   /// en: '(Downloads)'
   String get downloads => '(Downloads)';
@@ -1133,11 +1223,20 @@ class Translations$settingsTab$receive$en {
   /// en: 'Save media to gallery'
   String get saveToGallery => 'Save media to gallery';
 
+  /// en: 'Automatically save images and videos'
+  String get saveToGalleryDescription => 'Automatically save images and videos';
+
   /// en: 'Save to history'
   String get saveToHistory => 'Save to history';
 
+  /// en: 'Keep received files in history'
+  String get saveToHistoryDescription => 'Keep received files in history';
+
   /// en: 'Verify checksums when receiving files'
   String get verifyChecksums => 'Verify checksums when receiving files';
+
+  /// en: 'Check file integrity after receiving'
+  String get verifyChecksumsDescription => 'Check file integrity after receiving';
 }
 
 // Path: settingsTab.send
@@ -1151,11 +1250,20 @@ class Translations$settingsTab$send$en {
   /// en: 'Send'
   String get title => 'Send';
 
+  /// en: 'Configure how you send files'
+  String get subtitle => 'Configure how you send files';
+
   /// en: 'Automatically accept requests in "Share via link" mode'
   String get shareViaLinkAutoAccept => 'Automatically accept requests in "Share via link" mode';
 
+  /// en: 'Allow recipients to download without manual approval'
+  String get shareViaLinkAutoAcceptDescription => 'Allow recipients to download without manual approval';
+
   /// en: 'Create checksums when sending files'
   String get createChecksums => 'Create checksums when sending files';
+
+  /// en: 'Create checksums so recipients can verify file integrity'
+  String get createChecksumsDescription => 'Create checksums so recipients can verify file integrity';
 }
 
 // Path: settingsTab.network
@@ -1169,31 +1277,55 @@ class Translations$settingsTab$network$en {
   /// en: 'Network'
   String get title => 'Network';
 
+  /// en: 'Device identity, discovery and connection settings'
+  String get subtitle => 'Device identity, discovery and connection settings';
+
   /// en: 'Restart the server to apply the settings!'
   String get needRestart => 'Restart the server to apply the settings!';
 
   /// en: 'Server'
   String get server => 'Server';
 
+  /// en: 'Start, restart or stop this device's local transfer server'
+  String get serverDescription => 'Start, restart or stop this device\'s local transfer server';
+
   /// en: 'Device name'
   String get alias => 'Device name';
+
+  /// en: 'Choose the name nearby devices see'
+  String get aliasDescription => 'Choose the name nearby devices see';
 
   /// en: 'Device type'
   String get deviceType => 'Device type';
 
+  /// en: 'Choose how this device identifies itself to other devices'
+  String get deviceTypeDescription => 'Choose how this device identifies itself to other devices';
+
   /// en: 'Device model'
   String get deviceModel => 'Device model';
+
+  /// en: 'Set the model name shown to other devices'
+  String get deviceModelDescription => 'Set the model name shown to other devices';
 
   /// en: 'Port'
   String get port => 'Port';
 
+  /// en: 'Set the port used for local discovery and transfers'
+  String get portDescription => 'Set the port used for local discovery and transfers';
+
   /// en: 'Network'
   String get network => 'Network';
+
+  /// en: 'Choose which network interfaces are used for discovery'
+  String get networkDescription => 'Choose which network interfaces are used for discovery';
 
   late final Translations$settingsTab$network$networkOptions$en networkOptions = Translations$settingsTab$network$networkOptions$en.internal(_root);
 
   /// en: 'Discovery Timeout'
   String get discoveryTimeout => 'Discovery Timeout';
+
+  /// en: 'Set how long LocalSend waits to discover nearby devices'
+  String get discoveryTimeoutDescription => 'Set how long LocalSend waits to discover nearby devices';
 
   /// en: 'Use system name'
   String get useSystemName => 'Use system name';
@@ -1208,8 +1340,14 @@ class Translations$settingsTab$network$en {
   /// en: 'Encryption'
   String get encryption => 'Encryption';
 
+  /// en: 'Encrypt connections when transferring files'
+  String get encryptionDescription => 'Encrypt connections when transferring files';
+
   /// en: 'Multicast address'
   String get multicastGroup => 'Multicast address';
+
+  /// en: 'Set the multicast address used for device discovery'
+  String get multicastGroupDescription => 'Set the multicast address used for device discovery';
 
   /// en: 'You might not be detected by other devices because you are using a custom multicast address. (default: {defaultMulticast})'
   String multicastGroupWarning({required Object defaultMulticast}) =>
@@ -1227,8 +1365,17 @@ class Translations$settingsTab$other$en {
   /// en: 'Other'
   String get title => 'Other';
 
+  /// en: 'About, support and legal information'
+  String get subtitle => 'About, support and legal information';
+
+  /// en: 'View the LocalSend version and project information'
+  String get aboutDescription => 'View the LocalSend version and project information';
+
   /// en: 'Support LocalSend'
   String get support => 'Support LocalSend';
+
+  /// en: 'Help support the continued development of LocalSend'
+  String get supportDescription => 'Help support the continued development of LocalSend';
 
   /// en: 'Donate'
   String get donate => 'Donate';
@@ -1236,8 +1383,14 @@ class Translations$settingsTab$other$en {
   /// en: 'Privacy Policy'
   String get privacyPolicy => 'Privacy Policy';
 
+  /// en: 'Read how LocalSend handles your information'
+  String get privacyPolicyDescription => 'Read how LocalSend handles your information';
+
   /// en: 'Terms of Use'
   String get termsOfUse => 'Terms of Use';
+
+  /// en: 'Review the terms for using LocalSend'
+  String get termsOfUseDescription => 'Review the terms for using LocalSend';
 }
 
 // Path: troubleshootPage.firewall
