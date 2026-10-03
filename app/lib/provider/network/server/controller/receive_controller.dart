@@ -427,8 +427,10 @@ class ReceiveController {
           closeSession();
           _logger.info('Closing session');
 
-          // ignore: use_build_context_synchronously, discarded_futures
-          Routerino.context.pushRootImmediately(() => const HomePage(initialTab: HomeTab.receive, appStart: false));
+          // Keep the existing HomePage and its tab/controller state. Replacing the
+          // root repeats postInit and can interrupt an in-flight navigation animation.
+          server.ref.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.receive));
+          server.ref.global.dispatch(NavigateAction.popUntilRoot());
 
           // open the dialog to open file instantly
           if (filePath != null && filePath.isNotEmpty) {

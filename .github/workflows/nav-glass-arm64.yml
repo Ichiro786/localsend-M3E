@@ -50,6 +50,8 @@ jobs:
             lib/config/m3e_tokens.dart \
             lib/config/theme.dart \
             lib/pages/home_page.dart \
+            lib/pages/home_page_controller.dart \
+            lib/provider/network/server/controller/receive_controller.dart \
             lib/pages/tabs/send_tab.dart \
             lib/pages/tabs/settings_tab.dart \
             lib/pages/tabs/receive_tab.dart \
@@ -73,6 +75,8 @@ jobs:
             app/lib/config/m3e_tokens.dart
             app/lib/config/theme.dart
             app/lib/pages/home_page.dart
+            app/lib/pages/home_page_controller.dart
+            app/lib/provider/network/server/controller/receive_controller.dart
             app/lib/pages/tabs/send_tab.dart
             app/lib/pages/tabs/settings_tab.dart
             app/lib/pages/tabs/receive_tab.dart

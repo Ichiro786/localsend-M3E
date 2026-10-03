@@ -30,6 +30,12 @@ class HomePageController extends ReduxNotifier<HomePageVm> {
       changeTab: (tab) => redux.dispatch(ChangeTabAction(tab)),
     );
   }
+
+  @override
+  void dispose() {
+    state.controller.dispose();
+    super.dispose();
+  }
 }
 
 class ChangeTabAction extends ReduxAction<HomePageController, HomePageVm> {
@@ -39,19 +45,22 @@ class ChangeTabAction extends ReduxAction<HomePageController, HomePageVm> {
 
   @override
   HomePageVm reduce() {
-    if (state.controller.hasClients) {
+    final controller = state.controller.hasClients ? state.controller : PageController(initialPage: tab.index);
+    if (identical(controller, state.controller)) {
       unawaited(
-        state.controller.animateToPage(
+        controller.animateToPage(
           tab.index,
           duration: M3eTokens.standardMotion,
           curve: M3eTokens.responsiveCurve,
         ),
       );
     } else {
-      state.controller.jumpToPage(tab.index);
+      // With no attached PageView, the requested tab is its next initial page.
+      // jumpToPage requires a position; dispose the unattached controller instead.
+      state.controller.dispose();
     }
     return HomePageVm(
-      controller: state.controller,
+      controller: controller,
       currentTab: tab,
       changeTab: state.changeTab,
     );

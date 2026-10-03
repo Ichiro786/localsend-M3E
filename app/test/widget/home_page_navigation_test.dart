@@ -167,7 +167,9 @@ void main() {
     final controller = container.read(homePageControllerProvider).controller;
     container.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.settings));
     await tester.pump(const Duration(milliseconds: 60));
-    unawaited(container.read(navigationProvider).key.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Detail')))));
+    unawaited(
+      container.read(navigationProvider).key.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Detail')))),
+    );
     await _finishNavigation(tester);
     container.read(navigationProvider).key.currentState!.pop();
     await _finishNavigation(tester);
@@ -188,16 +190,48 @@ void main() {
     await _tapTab(tester, HomeTab.send);
     final homeState = tester.state(find.byType(HomePage));
     final controller = container.read(homePageControllerProvider).controller;
-    ServerState? serverState = ServerState(alias: 'Fixture', port: 53317, https: false, webSendState: null, webUpload: false, webPin: null,
-      session: ReceiveSessionState(sessionId: 'quick-save', status: SessionStatus.sending, sender: Device.empty, senderAlias: 'Fixture',
-        files: {'file': ReceivingFile(file: FileDto(id: 'file', fileName: 'file.bin', size: 10, fileType: FileType.other,
-          hash: null, preview: null, metadata: null), token: 'token', desiredName: 'file.bin', path: null, savedToGallery: false, errorMessage: null)},
-        startTime: null, endTime: null, destinationDirectory: '', cacheDirectory: '', saveToGallery: false, createdDirectories: {}));
-    final receiver = ReceiveController(ServerUtils(refFunc: () => container, getState: () => serverState!,
-      getStateOrNull: () => serverState, setState: (builder) => serverState = builder(serverState)));
+    ServerState? serverState = ServerState(
+      alias: 'Fixture',
+      port: 53317,
+      https: false,
+      webSendState: null,
+      webUpload: false,
+      webPin: null,
+      session: ReceiveSessionState(
+        sessionId: 'quick-save',
+        status: SessionStatus.sending,
+        sender: Device.empty,
+        senderAlias: 'Fixture',
+        files: {
+          'file': ReceivingFile(
+            file: FileDto(id: 'file', fileName: 'file.bin', size: 10, fileType: FileType.other, hash: null, preview: null, metadata: null),
+            token: 'token',
+            desiredName: 'file.bin',
+            path: null,
+            savedToGallery: false,
+            errorMessage: null,
+          ),
+        },
+        startTime: null,
+        endTime: null,
+        destinationDirectory: '',
+        cacheDirectory: '',
+        saveToGallery: false,
+        createdDirectories: {},
+      ),
+    );
+    final receiver = ReceiveController(
+      ServerUtils(
+        refFunc: () => container,
+        getState: () => serverState!,
+        getStateOrNull: () => serverState,
+        setState: (builder) => serverState = builder(serverState),
+      ),
+    );
     // A null path exercises completion without an OpenFileDialog/native file launch.
-    await receiver.onFileUploadResult(HttpServerFileUploadResultEvent(sessionId: 'quick-save', fileId: 'file', path: null,
-      savedToGallery: false, error: null));
+    await receiver.onFileUploadResult(
+      HttpServerFileUploadResultEvent(sessionId: 'quick-save', fileId: 'file', path: null, savedToGallery: false, error: null),
+    );
     await _finishNavigation(tester);
     expect(serverState!.session, isNull);
     expect(find.byType(HomePage, skipOffstage: false), findsOneWidget);
@@ -216,7 +250,11 @@ void main() {
     container.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.send));
     container.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.settings));
     final vm = container.read(homePageControllerProvider);
-    await tester.pumpWidget(MaterialApp(home: PageView(controller: vm.controller, children: const [Text('Receive'), Text('Send'), Text('Settings')])));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PageView(controller: vm.controller, children: const [Text('Receive'), Text('Send'), Text('Settings')]),
+      ),
+    );
     await _finishNavigation(tester);
     expect(vm.currentTab, HomeTab.settings);
     expect(vm.controller.page, 2);
@@ -266,14 +304,16 @@ void _setViewport(WidgetTester tester) {
 Widget _navigationApp(RefenaContainer container) {
   Routerino.navigatorKey = container.read(navigationProvider).key;
   return RefenaScope.withContainer(
-  container: container,
-  ownsContainer: false,
-  child: TranslationProvider(child: MaterialApp(
-    navigatorKey: container.read(navigationProvider).key,
-    theme: getTheme(ColorMode.oled, Colors.teal, Brightness.dark, null),
-    home: RouterinoHome(builder: () => const HomePage(initialTab: HomeTab.receive, appStart: false)),
-  )),
-);
+    container: container,
+    ownsContainer: false,
+    child: TranslationProvider(
+      child: MaterialApp(
+        navigatorKey: container.read(navigationProvider).key,
+        theme: getTheme(ColorMode.oled, Colors.teal, Brightness.dark, null),
+        home: RouterinoHome(builder: () => const HomePage(initialTab: HomeTab.receive, appStart: false)),
+      ),
+    ),
+  );
 }
 
 RefenaContainer _navigationContainer({SettingsState? initialSettings}) {
