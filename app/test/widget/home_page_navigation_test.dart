@@ -59,7 +59,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final container = _navigationContainer();
-    addTearDown(container.dispose);
+    addTearDown(container.disposeContainer);
     await tester.pumpWidget(_navigationApp(container));
     await _finishNavigation(tester);
     await _tapTab(tester, HomeTab.send);
@@ -107,29 +107,33 @@ Widget _navigationApp(RefenaContainer container) => RefenaScope.withContainer(
 
 RefenaContainer _navigationContainer() {
   final settings = _FixtureSettingsService(_fixtureSettings());
-  const info = DeviceInfoResult(deviceType: DeviceType.desktop, deviceModel: null, androidSdkInt: 28);
-  return RefenaContainer(overrides: [
-    settingsProvider.overrideWithNotifier((_) => settings),
-    serverProvider.overrideWithNotifier((_) => _BootstrapServer()),
-    localIpProvider.overrideWithNotifier((_) => _NavigationLocalIpService(settings)),
-    deviceInfoProvider.overrideWithBuilder((_) => info),
-    tvProvider.overrideWithValue(false),
-    versionProvider.overrideWithFuture((_) async => VersionData(version: 'test', buildNumber: '1')),
-    nearbyDevicesProvider.overrideWithNotifier((_) => _NavigationNearbyDevicesService()),
-    sendTabVmProvider.overrideWithBuilder((_) => SendTabVm(
-      sendMode: SendMode.single,
-      selectedFiles: const [],
-      localIps: const [],
-      nearbyDevices: const [],
-      favoriteDevices: const [],
-      onTapAddress: (_) async {},
-      onTapFavorite: (_) async {},
-      onTapSendMode: (_, _) async {},
-      onTapDevice: (_, _) async {},
-      onTapDeviceMultiSend: (_, _) async {},
-    )),
-    settingsTabControllerProvider.overrideWithNotifier((_) => _FixtureSettingsTabController(settingsService: settings, deviceInfo: info)),
-  ]);
+  final info = DeviceInfoResult(deviceType: DeviceType.desktop, deviceModel: null, androidSdkInt: 28);
+  return RefenaContainer(
+    overrides: [
+      settingsProvider.overrideWithNotifier((_) => settings),
+      serverProvider.overrideWithNotifier((_) => _BootstrapServer()),
+      localIpProvider.overrideWithNotifier((_) => _NavigationLocalIpService(settings)),
+      deviceInfoProvider.overrideWithBuilder((_) => info),
+      tvProvider.overrideWithValue(false),
+      versionProvider.overrideWithFuture((_) async => VersionData(version: 'test', buildNumber: '1')),
+      nearbyDevicesProvider.overrideWithNotifier((_) => _NavigationNearbyDevicesService()),
+      sendTabVmProvider.overrideWithBuilder(
+        (_) => SendTabVm(
+          sendMode: SendMode.single,
+          selectedFiles: const [],
+          localIps: const [],
+          nearbyDevices: const [],
+          favoriteDevices: const [],
+          onTapAddress: (_) async {},
+          onTapFavorite: (_) async {},
+          onTapSendMode: (_, _) async {},
+          onTapDevice: (_, _) async {},
+          onTapDeviceMultiSend: (_, _) async {},
+        ),
+      ),
+      settingsTabControllerProvider.overrideWithNotifier((_) => _FixtureSettingsTabController(settingsService: settings, deviceInfo: info)),
+    ],
+  );
 }
 
 // Stop bootstrap at the server boundary: these tests run the real HomePage,
@@ -148,18 +152,37 @@ class _NavigationLocalIpService extends LocalIpService {
 }
 
 class _NavigationNearbyDevicesService extends NearbyDevicesService {
-  _NavigationNearbyDevicesService() : super(
-    isolateController: IsolateController(initialState: _parentState(_fixtureSettings(),
-      const DeviceInfoResult(deviceType: DeviceType.desktop, deviceModel: null, androidSdkInt: 28))),
-    favoriteService: FavoritesService(MockPersistenceService()),
-    discoveryLogs: DiscoveryLogger(),
-  );
+  _NavigationNearbyDevicesService()
+    : super(
+        isolateController: IsolateController(
+          initialState: _parentState(
+            _fixtureSettings(),
+            DeviceInfoResult(deviceType: DeviceType.desktop, deviceModel: null, androidSdkInt: 28),
+          ),
+        ),
+        favoriteService: FavoritesService(MockPersistenceService()),
+        discoveryLogs: DiscoveryLogger(),
+      );
   @override
   NearbyDevicesState init() => const NearbyDevicesState(
-    runningFavoriteScan: false, runningIps: {}, signalingDevices: {},
-    devices: {'fixture': Device(signalingId: null, ip: '192.168.1.2', version: '2.1', port: 53317,
-      https: false, fingerprint: 'fixture', alias: 'Fixture', deviceModel: null,
-      deviceType: DeviceType.desktop, download: false, channels: [])},
+    runningFavoriteScan: false,
+    runningIps: {},
+    signalingDevices: {},
+    devices: {
+      'fixture': Device(
+        signalingId: null,
+        ip: '192.168.1.2',
+        version: '2.1',
+        port: 53317,
+        https: false,
+        fingerprint: 'fixture',
+        alias: 'Fixture',
+        deviceModel: null,
+        deviceType: DeviceType.desktop,
+        download: false,
+        channels: [],
+      ),
+    },
   );
 }
 
