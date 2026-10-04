@@ -11,18 +11,22 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   tearDown(() => timeDilation = 1);
 
-  test('motion defaults on and follows accessibility and sleep without a saved preference', () {
+  test('motion defaults on and follows accessibility and sleep without a saved preference', () async {
     final container = RefenaContainer();
     addTearDown(container.disposeContainer);
     expect(container.read(animationProvider), isTrue);
     container.notifier(reducedMotionProvider).setState((_) => true);
+    await _flushProviders();
     expect(container.read(animationProvider), isFalse);
     container.notifier(reducedMotionProvider).setState((_) => false);
+    await _flushProviders();
     expect(container.read(animationProvider), isTrue);
     container.notifier(sleepProvider).setState((_) => true);
+    await _flushProviders();
     expect(container.read(animationProvider), isFalse);
     container.notifier(reducedMotionProvider).setState((_) => true);
     container.notifier(sleepProvider).setState((_) => false);
+    await _flushProviders();
     expect(container.read(animationProvider), isFalse);
   });
 
@@ -53,6 +57,7 @@ void main() {
     }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+    timeDilation = 1;
   });
 
   testWidgets('entrance effects become immediately visible with platform reduced motion', (tester) async {
@@ -79,24 +84,35 @@ void main() {
     expect(slide.duration, Duration.zero);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+    timeDilation = 1;
   });
 
   testWidgets('removing delayed entrance effects cancels their pending timers', (tester) async {
     await tester.pumpWidget(
       RefenaScope(
         child: const MaterialApp(
-          home: Column(children: [
-            InitialFadeTransition(delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Fade')),
-            InitialSlideTransition(origin: Offset(0, 1), delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Slide')),
-          ]),
+          home: Column(
+            children: [
+              InitialFadeTransition(delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Fade')),
+              InitialSlideTransition(origin: Offset(0, 1), delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Slide')),
+            ],
+          ),
         ),
       ),
     );
     expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity, 0);
     expect(tester.widget<AnimatedSlide>(find.byType(AnimatedSlide)).offset, const Offset(0, 1));
     await tester.pumpWidget(const SizedBox());
+    timeDilation = 1;
     expect(tester.takeException(), isNull);
     // Flutter verifies there are no pending timers at the end of this test.
   });
+}
 
+
+Future<void> _flushProviders() async {
+  // Refena delivers dependent provider changes through queued microtasks.
+  for (var i = 0; i < 3; i++) {
+    await Future<void>.value();
+  }
 }

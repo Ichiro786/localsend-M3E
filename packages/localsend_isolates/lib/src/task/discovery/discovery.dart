@@ -47,13 +47,15 @@ class DiscoveryService {
 
     _listening = true;
 
-    final devices = StreamController<Device>(onCancel: () async {
-      _listening = false;
-      _configurationVersion++;
-      await _syncSubscription?.cancel();
-      if (!_retryCompleter.isCompleted) _retryCompleter.complete();
-      await _discovery?.stop();
-    });
+    final devices = StreamController<Device>(
+      onCancel: () async {
+        _listening = false;
+        _configurationVersion++;
+        await _syncSubscription?.cancel();
+        if (!_retryCompleter.isCompleted) _retryCompleter.complete();
+        await _discovery?.stop();
+      },
+    );
     unawaited(_runListener(devices));
     return devices.stream;
   }
@@ -233,7 +235,6 @@ class DiscoveryService {
   }
 }
 
-
 bool _configurationChanged(SyncState prev, SyncState next) {
   const lists = ListEquality<String>();
   return prev.alias != next.alias ||
@@ -251,19 +252,19 @@ bool _configurationChanged(SyncState prev, SyncState next) {
 
 Future<RsDiscovery> _startFromState(SyncState syncState) {
   return startDiscovery(
-          group: syncState.multicastGroup,
-          port: syncState.port,
-          networkWhitelist: syncState.networkWhitelist,
-          networkBlacklist: syncState.networkBlacklist,
-          alias: syncState.alias,
-          version: protocolVersion,
-          deviceModel: syncState.deviceInfo.deviceModel,
-          deviceType: syncState.deviceInfo.deviceType.toRust(),
-          fingerprint: syncState.securityContext.certificateHash,
-          protocol: syncState.protocol.toRust(),
-          download: syncState.download,
-          certPem: syncState.securityContext.certificate,
-          privateKeyPem: syncState.securityContext.privateKey,
-          timeoutMs: BigInt.from(syncState.discoveryTimeout),
-        );
+    group: syncState.multicastGroup,
+    port: syncState.port,
+    networkWhitelist: syncState.networkWhitelist,
+    networkBlacklist: syncState.networkBlacklist,
+    alias: syncState.alias,
+    version: protocolVersion,
+    deviceModel: syncState.deviceInfo.deviceModel,
+    deviceType: syncState.deviceInfo.deviceType.toRust(),
+    fingerprint: syncState.securityContext.certificateHash,
+    protocol: syncState.protocol.toRust(),
+    download: syncState.download,
+    certPem: syncState.securityContext.certificate,
+    privateKeyPem: syncState.securityContext.privateKey,
+    timeoutMs: BigInt.from(syncState.discoveryTimeout),
+  );
 }

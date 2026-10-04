@@ -431,8 +431,12 @@ mod tests {
             (None, Some(false), false),
         ] {
             let mut json = base.clone();
-            if let Some(flag) = announce { json["announce"] = flag.into(); }
-            if let Some(flag) = announcement { json["announcement"] = flag.into(); }
+            if let Some(flag) = announce {
+                json["announce"] = flag.into();
+            }
+            if let Some(flag) = announcement {
+                json["announcement"] = flag.into();
+            }
             let bytes = serde_json::to_vec(&json).unwrap();
             assert_eq!(parse_announcement(&bytes).unwrap().is_some(), expected);
         }
