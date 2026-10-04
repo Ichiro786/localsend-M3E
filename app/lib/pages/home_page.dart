@@ -85,130 +85,130 @@ class _HomePageState extends State<HomePage> with Refena {
         }
       },
       child: DropTarget(
-      onDragEntered: (_) {
-        setState(() {
-          _dragAndDropIndicator = true;
-        });
-      },
-      onDragExited: (_) {
-        setState(() {
-          _dragAndDropIndicator = false;
-        });
-      },
-      onDragDone: (event) async {
-        if (event.files.length == 1 && Directory(event.files.first.path).existsSync()) {
-          // user dropped a directory
-          await ref.redux(selectedSendingFilesProvider).dispatchAsync(AddDirectoryAction(event.files.first.path));
-        } else {
-          // user dropped one or more files
-          await ref
-              .redux(selectedSendingFilesProvider)
-              .dispatchAsync(
-                AddFilesAction(
-                  files: event.files,
-                  converter: CrossFileConverters.convertXFile,
-                ),
-              );
-        }
-        vm.changeTab(HomeTab.send);
-      },
-      child: ResponsiveBuilder(
-        builder: (sizingInformation) {
-          final backgroundEmphasis = switch (vm.currentTab) {
-            HomeTab.receive => M3eBackgroundEmphasis.receive,
-            HomeTab.send => M3eBackgroundEmphasis.send,
-            HomeTab.settings => M3eBackgroundEmphasis.settings,
-          };
-          return M3eExpressiveBackground(
-            emphasis: backgroundEmphasis,
-            child: Scaffold(
-              extendBody: true,
-              backgroundColor: Colors.transparent,
-              body: Row(
-                children: [
-                  if (!sizingInformation.isMobile)
-                    NavigationRail(
-                      selectedIndex: vm.currentTab.index,
-                      onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index]),
-                      extended: sizingInformation.isDesktop,
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.82),
-                      leading: sizingInformation.isDesktop
-                          ? const Column(
-                              children: [
-                                SizedBox(height: 20),
-                                Text(
-                                  'LocalSend',
-                                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center,
-                                ),
-                                SizedBox(height: 20),
-                              ],
-                            )
-                          : null,
-                      destinations: HomeTab.values.map((tab) {
-                        return NavigationRailDestination(
-                          icon: Icon(tab.icon),
-                          label: Text(tab.label),
-                        );
-                      }).toList(),
-                    ),
-                  Expanded(
-                    child: SafeArea(
-                      // Keep the mobile viewport behind the floating bar. Scroll views
-                      // use the Scaffold bottom inset as trailing content padding.
-                      bottom: !sizingInformation.isMobile,
-                      left: sizingInformation.isMobile,
-                      child: Stack(
-                        children: [
-                          PageView(
-                            controller: vm.controller,
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: const [
-                              ReceiveTab(),
-                              SendTab(),
-                              SettingsTab(),
-                            ],
-                          ),
-                          if (_dragAndDropIndicator)
-                            Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).scaffoldBackgroundColor,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+        onDragEntered: (_) {
+          setState(() {
+            _dragAndDropIndicator = true;
+          });
+        },
+        onDragExited: (_) {
+          setState(() {
+            _dragAndDropIndicator = false;
+          });
+        },
+        onDragDone: (event) async {
+          if (event.files.length == 1 && Directory(event.files.first.path).existsSync()) {
+            // user dropped a directory
+            await ref.redux(selectedSendingFilesProvider).dispatchAsync(AddDirectoryAction(event.files.first.path));
+          } else {
+            // user dropped one or more files
+            await ref
+                .redux(selectedSendingFilesProvider)
+                .dispatchAsync(
+                  AddFilesAction(
+                    files: event.files,
+                    converter: CrossFileConverters.convertXFile,
+                  ),
+                );
+          }
+          vm.changeTab(HomeTab.send);
+        },
+        child: ResponsiveBuilder(
+          builder: (sizingInformation) {
+            final backgroundEmphasis = switch (vm.currentTab) {
+              HomeTab.receive => M3eBackgroundEmphasis.receive,
+              HomeTab.send => M3eBackgroundEmphasis.send,
+              HomeTab.settings => M3eBackgroundEmphasis.settings,
+            };
+            return M3eExpressiveBackground(
+              emphasis: backgroundEmphasis,
+              child: Scaffold(
+                extendBody: true,
+                backgroundColor: Colors.transparent,
+                body: Row(
+                  children: [
+                    if (!sizingInformation.isMobile)
+                      NavigationRail(
+                        selectedIndex: vm.currentTab.index,
+                        onDestinationSelected: (index) => vm.changeTab(HomeTab.values[index]),
+                        extended: sizingInformation.isDesktop,
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.82),
+                        leading: sizingInformation.isDesktop
+                            ? const Column(
                                 children: [
-                                  const Icon(Icons.file_download, size: 128),
-                                  const SizedBox(height: 30),
-                                  Text(t.sendTab.placeItems, style: Theme.of(context).textTheme.titleLarge),
+                                  SizedBox(height: 20),
+                                  Text(
+                                    'LocalSend',
+                                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  SizedBox(height: 20),
                                 ],
-                              ),
+                              )
+                            : null,
+                        destinations: HomeTab.values.map((tab) {
+                          return NavigationRailDestination(
+                            icon: Icon(tab.icon),
+                            label: Text(tab.label),
+                          );
+                        }).toList(),
+                      ),
+                    Expanded(
+                      child: SafeArea(
+                        // Keep the mobile viewport behind the floating bar. Scroll views
+                        // use the Scaffold bottom inset as trailing content padding.
+                        bottom: !sizingInformation.isMobile,
+                        left: sizingInformation.isMobile,
+                        child: Stack(
+                          children: [
+                            PageView(
+                              controller: vm.controller,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: const [
+                                ReceiveTab(),
+                                SendTab(),
+                                SettingsTab(),
+                              ],
                             ),
-                        ],
+                            if (_dragAndDropIndicator)
+                              Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).scaffoldBackgroundColor,
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.file_download, size: 128),
+                                    const SizedBox(height: 30),
+                                    Text(t.sendTab.placeItems, style: Theme.of(context).textTheme.titleLarge),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                bottomNavigationBar: sizingInformation.isMobile
+                    ? M3eFloatingNavigationBar(
+                        selectedIndex: vm.currentTab.index,
+                        animationsEnabled: animationsEnabled,
+                        destinations: HomeTab.values
+                            .map(
+                              (tab) => M3eNavigationDestination(
+                                icon: tab.icon,
+                                label: tab.label,
+                                onTap: () => vm.changeTab(tab),
+                              ),
+                            )
+                            .toList(),
+                      )
+                    : null,
               ),
-              bottomNavigationBar: sizingInformation.isMobile
-                  ? M3eFloatingNavigationBar(
-                      selectedIndex: vm.currentTab.index,
-                      animationsEnabled: animationsEnabled,
-                      destinations: HomeTab.values
-                          .map(
-                            (tab) => M3eNavigationDestination(
-                              icon: tab.icon,
-                              label: tab.label,
-                              onTap: () => vm.changeTab(tab),
-                            ),
-                          )
-                          .toList(),
-                    )
-                  : null,
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
       ),
     );
   }

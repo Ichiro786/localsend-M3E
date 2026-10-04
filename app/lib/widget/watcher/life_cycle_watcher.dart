@@ -42,6 +42,7 @@ class _LifeCycleWatcherState extends State<LifeCycleWatcher> with WidgetsBinding
       unawaited(_refreshMotionPreference());
     }
   }
+
   @override
   void didChangeAccessibilityFeatures() {
     // Apply Flutter's accessibility signal immediately, then reconcile native
@@ -58,5 +59,4 @@ class _LifeCycleWatcherState extends State<LifeCycleWatcher> with WidgetsBinding
     final reduced = !systemAnimations || WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
     context.ref.notifier(reducedMotionProvider).setState((_) => reduced);
   }
-
 }

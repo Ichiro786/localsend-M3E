@@ -10,16 +10,28 @@ void main() {
       testWidgets('settings selectors retain their container and outline in ${mode.name}/${brightness.name}', (tester) async {
         final theme = getTheme(mode, Colors.deepOrange, brightness, null);
         String selected = 'one';
-        await tester.pumpWidget(MaterialApp(
-          theme: theme,
-          home: Scaffold(body: Center(child: SizedBox(width: 132, child: StatefulBuilder(
-            builder: (context, setState) => CustomDropdownButton<String>(
-              value: selected,
-              items: const [DropdownMenuItem(value: 'one', child: Text('One')), DropdownMenuItem(value: 'two', child: Text('Two'))],
-              onChanged: (value) => setState(() => selected = value),
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 132,
+                  child: StatefulBuilder(
+                    builder: (context, setState) => CustomDropdownButton<String>(
+                      value: selected,
+                      items: const [
+                        DropdownMenuItem(value: 'one', child: Text('One')),
+                        DropdownMenuItem(value: 'two', child: Text('Two')),
+                      ],
+                      onChanged: (value) => setState(() => selected = value),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          )))),
-        ));
+          ),
+        );
         final control = find.byType(CustomDropdownButton<String>);
         final material = tester.widget<Material>(find.descendant(of: control, matching: find.byType(Material)).first);
         final shape = material.shape! as RoundedRectangleBorder;

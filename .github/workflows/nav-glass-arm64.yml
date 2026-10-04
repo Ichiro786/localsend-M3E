@@ -28,9 +28,19 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Install pinned Rust formatter
+        run: rustup component add rustfmt
       - name: Format networking regression test
         working-directory: packages/core
-        run: rustfmt --edition 2021 tests/v2_legacy_interop.rs
+        run: |
+          rustfmt --edition 2021 tests/v2_legacy_interop.rs
+          python3 - <<'PYCODE'
+          import base64, subprocess
+          patch = subprocess.check_output(['git', 'diff', '--', 'tests/v2_legacy_interop.rs'])
+          print('RUST_FORMATTED_PATCH_BEGIN')
+          print(base64.b64encode(patch).decode())
+          print('RUST_FORMATTED_PATCH_END')
+          PYCODE
       - name: Verify legacy regression against original server
         working-directory: packages/core
         shell: bash
@@ -84,12 +94,16 @@ jobs:
 
       - name: Regenerate settings mapper
         working-directory: app
-        run: dart run build_runner build --build-filter=lib/model/state/settings_state.mapper.dart
+        run: |
+          dart run build_runner build --build-filter=lib/model/state/settings_state.mapper.dart
+          # A filtered fresh build removes generated outputs outside its filter.
+          # Restore those checked-in outputs, including the unchanged Mockito mocks.
+          git ls-files --deleted -z | xargs -0 -r git restore --
 
       - name: Format and check UI files
         working-directory: app
         run: |
-          dart format \
+          dart format --set-exit-if-changed \
             lib/config/m3e_tokens.dart \
             lib/config/theme.dart \
             lib/pages/home_page.dart \
@@ -119,7 +133,9 @@ jobs:
             lib/widget/watcher/life_cycle_watcher.dart \
             test/widget/custom_dropdown_button_test.dart \
             test/widget/motion_preferences_test.dart \
-            test/widget/progress_page_test.dart
+            test/widget/progress_page_test.dart \
+            lib/util/ui/animations_status.dart \
+            test/unit/provider/motion_persistence_test.dart
 
       - name: Export formatter and codegen patch
         shell: bash

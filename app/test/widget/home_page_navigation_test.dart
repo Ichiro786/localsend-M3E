@@ -288,9 +288,15 @@ void main() {
     await tester.pumpWidget(_navigationApp(container));
     await _finishNavigation(tester);
     await _tapTab(tester, HomeTab.settings);
-    unawaited(container.read(navigationProvider).key.currentState!.push(
-      MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Nested settings'))),
-    ));
+    unawaited(
+      container
+          .read(navigationProvider)
+          .key
+          .currentState!
+          .push(
+            MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Nested settings'))),
+          ),
+    );
     await _finishNavigation(tester);
     expect(find.text('Nested settings'), findsOneWidget);
     await tester.binding.handlePopRoute();

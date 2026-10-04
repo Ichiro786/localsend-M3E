@@ -1,18 +1,22 @@
 import 'dart:io';
+
+import 'package:flutter/widgets.dart';
 import 'package:localsend_app/util/native/channel/android_channel.dart';
 import 'package:localsend_app/util/native/ios_channel.dart';
 import 'package:localsend_app/util/native/macos_channel.dart';
+import 'package:logging/logging.dart';
 
 Future<bool> getSystemAnimationsStatus() async {
-  if (Platform.isAndroid) {
-    return await getSystemAnimationsStatusAndroid();
-  } else if (Platform.isIOS) {
-    bool isReduceMotionEnabledBool = await isReduceMotionEnabledIOS();
-    return !isReduceMotionEnabledBool;
-  } else if (Platform.isMacOS) {
-    bool isReduceMotionEnabledBool = await isReduceMotionEnabledMacOs();
-    return !isReduceMotionEnabledBool;
+  try {
+    if (Platform.isAndroid) {
+      return await getSystemAnimationsStatusAndroid();
+    } else if (Platform.isIOS) {
+      return !await isReduceMotionEnabledIOS();
+    } else if (Platform.isMacOS) {
+      return !await isReduceMotionEnabledMacOs();
+    }
+  } catch (error, stack) {
+    Logger('MotionPreferences').warning('Could not query native motion settings; using Flutter accessibility.', error, stack);
   }
-
-  return true; // Default to true for other platforms.
+  return !WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
 }

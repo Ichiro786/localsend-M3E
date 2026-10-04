@@ -31,10 +31,16 @@ void main() {
     addTearDown(container.disposeContainer);
     addTearDown(tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue);
     addTearDown(() => tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed));
-    await tester.pumpWidget(RefenaScope.withContainer(
-      container: container, ownsContainer: false,
-      child: LifeCycleWatcher(onChangedState: (_) {}, child: const MaterialApp(home: SizedBox())),
-    ));
+    await tester.pumpWidget(
+      RefenaScope.withContainer(
+        container: container,
+        ownsContainer: false,
+        child: LifeCycleWatcher(
+          onChangedState: (_) {},
+          child: const MaterialApp(home: SizedBox()),
+        ),
+      ),
+    );
     for (final reduced in [true, false, true, false]) {
       tester.binding.platformDispatcher.accessibilityFeaturesTestValue = FakeAccessibilityFeatures(disableAnimations: reduced);
       await tester.pump();
@@ -50,13 +56,19 @@ void main() {
   });
 
   testWidgets('entrance effects become immediately visible with platform reduced motion', (tester) async {
-    await tester.pumpWidget(RefenaScope(
-      overrides: [reducedMotionProvider.overrideWithInitialState((_) => true)],
-      child: const MaterialApp(home: Column(children: [
-        InitialFadeTransition(delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Fade')),
-        InitialSlideTransition(origin: Offset(0, 1), delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Slide')),
-      ])),
-    ));
+    await tester.pumpWidget(
+      RefenaScope(
+        overrides: [reducedMotionProvider.overrideWithInitialState((_) => true)],
+        child: const MaterialApp(
+          home: Column(
+            children: [
+              InitialFadeTransition(delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Fade')),
+              InitialSlideTransition(origin: Offset(0, 1), delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Slide')),
+            ],
+          ),
+        ),
+      ),
+    );
     await tester.pump(Duration.zero);
     await tester.pump();
     final fade = tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity));
