@@ -81,6 +81,9 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+      - name: Resolve formatter configuration
+        working-directory: app
+        run: flutter pub get
       - name: Format transfer changes
         working-directory: app
         run: |
