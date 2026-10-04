@@ -181,7 +181,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('Quick Save completion returns to the existing Home without duplicate PageViews', (tester) async {
+  testWidgets('Quick Save completion preserves its result and the existing Home without duplicate PageViews', (tester) async {
     _setViewport(tester);
     final container = _navigationContainer(initialSettings: _fixtureSettings(quickSave: true));
     addTearDown(container.disposeContainer);
@@ -233,11 +233,11 @@ void main() {
       HttpServerFileUploadResultEvent(sessionId: 'quick-save', fileId: 'file', path: null, savedToGallery: false, error: null),
     );
     await _finishNavigation(tester);
-    expect(serverState!.session, isNull);
+    expect(serverState!.session!.status, SessionStatus.finished);
     expect(find.byType(HomePage, skipOffstage: false), findsOneWidget);
     expect(tester.state(find.byType(HomePage)), same(homeState));
     expect(controller.positions, hasLength(1));
-    _expectNavigation(tester, container, HomeTab.receive);
+    _expectNavigation(tester, container, HomeTab.send);
     await _tapTab(tester, HomeTab.settings);
     _expectNavigation(tester, container, HomeTab.settings);
     expect(tester.takeException(), isNull);

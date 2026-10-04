@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:localsend_app/config/theme.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/state/server/receive_session_state.dart';
-import 'package:localsend_app/pages/web_share_page.dart';
 import 'package:localsend_app/provider/file_transfer_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
+import 'package:localsend_app/provider/receive_results_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/util/native/open_file.dart';
 import 'package:localsend_app/util/native/open_folder.dart';
@@ -39,11 +39,13 @@ class ProgressPage extends StatefulWidget {
   final bool showAppBar;
   final bool closeSessionOnClose;
   final String sessionId;
+  final bool receiving;
 
   const ProgressPage({
     required this.showAppBar,
     required this.closeSessionOnClose,
     required this.sessionId,
+    this.receiving = false,
   });
 
   @override
@@ -64,6 +66,8 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
   Timer? _wakelockPlusTimer;
 
   bool _advanced = false;
+  bool _exiting = false;
+  bool _exitScheduled = false;
 
   /// On Android the foreground service keeps the process and the connection alive,
   /// so there is no reason to also keep the screen on.
@@ -75,6 +79,7 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
 
     // init
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (_useWakelock) {
         try {
           unawaited(WakelockPlus.enable());
@@ -86,7 +91,8 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
         // enable() every 30s leaks inhibit locks that keep the screen awake indefinitely (issue #3209).
         _wakelockPlusTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
           // an empty iterable (session already removed) also counts as finished
-          final finished = ref.read(fileTransferProvider).getStatuses(widget.sessionId).isFinishedOrSkipped;
+          final session = _readSession();
+          final finished = session == null || session.status != SessionStatus.sending;
           if (finished) {
             timer.cancel();
             try {
@@ -96,10 +102,12 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
         });
       }
 
-      if (ref.read(settingsProvider).autoFinish) {
+      if (!widget.receiving && ref.read(settingsProvider).autoFinish) {
         _finishTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          // an empty iterable (session already removed) also counts as finished
-          final finished = ref.read(fileTransferProvider).getStatuses(widget.sessionId).isFinishedOrSkipped;
+          // Never dismiss another route (e.g. an incoming transfer over this
+          // send page), or infer completion from an empty statuses iterable.
+          if (ModalRoute.of(context)?.isCurrent != true) return;
+          final finished = ref.read(sendProvider)[widget.sessionId]?.status == SessionStatus.finished;
           if (finished) {
             if (_finishCounter == 1) {
               timer.cancel();
@@ -109,12 +117,14 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
                 _finishCounter--;
               });
             }
+          } else {
+            _finishCounter = 3;
           }
         });
       }
 
       setState(() {
-        final receiveSession = ref.read(serverProvider)?.session;
+        final receiveSession = _readReceiveSession();
         if (receiveSession != null) {
           _files = receiveSession.files.values.map((f) => f.file).toList();
         } else {
@@ -136,52 +146,65 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
     });
   }
 
-  void _exit({required bool closeSession}) async {
-    final receiveSession = ref.read(serverProvider.select((s) => s?.session));
-    final sendSession = ref.read(sendProvider)[widget.sessionId];
-    final SessionStatus? status = receiveSession?.status ?? sendSession?.status;
-    final keepSession = !closeSession && (status == SessionStatus.sending || status == SessionStatus.finishedWithErrors);
-    final result = status == null || keepSession || await _askCancelConfirmation(status);
-
-    if (result && mounted) {
-      if (ref.read(serverProvider)?.webUpload == true) {
-        context.global.dispatch(NavigateAction.popUntil<WebSharePage>());
-      } else {
-        context.global.dispatch(NavigateAction.popUntilRoot());
-      }
-    }
+  ReceiveSessionState? _matchingReceiveSession(ReceiveSessionState? session) {
+    return widget.receiving && session?.sessionId == widget.sessionId ? session : null;
   }
 
-  Future<bool> _askCancelConfirmation(SessionStatus status) async {
-    final bool result = switch (status == SessionStatus.sending) {
-      true => (await context.pushBottomSheet(() => const CancelSessionDialog())) == true,
-      false => true,
-    };
-    if (result) {
-      final receiveSession = ref.read(serverProvider)?.session;
-      final sendState = ref.read(sendProvider)[widget.sessionId];
+  ReceiveSessionState? _readReceiveSession() {
+    if (!widget.receiving) return null;
+    return _matchingReceiveSession(ref.read(serverProvider)?.session) ?? ref.read(receiveResultsProvider)[widget.sessionId];
+  }
 
-      if (receiveSession != null) {
-        if (receiveSession.status == SessionStatus.sending) {
-          ref.notifier(serverProvider).cancelSession();
-        } else {
-          ref.notifier(serverProvider).closeSession();
-        }
-      } else if (sendState != null) {
-        if (sendState.status == SessionStatus.sending) {
-          ref.notifier(sendProvider).cancelSession(widget.sessionId);
-        } else {
-          ref.notifier(sendProvider).closeSession(widget.sessionId);
+  SessionState? _readSession() => _readReceiveSession() ?? (widget.receiving ? null : ref.read(sendProvider)[widget.sessionId]);
+
+  Future<void> _exit({required bool closeSession}) async {
+    if (_exiting || ModalRoute.of(context)?.isCurrent != true) return;
+    _exiting = true;
+    try {
+      final status = _readSession()?.status;
+      final keepSession = !closeSession && (status == SessionStatus.sending || status == SessionStatus.finishedWithErrors);
+      if (!keepSession && status == SessionStatus.sending) {
+        if (await context.pushBottomSheet(() => const CancelSessionDialog()) != true) return;
+      }
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+
+      if (!keepSession) {
+        // Re-read after confirmation: completion or a new incoming transfer may
+        // have arrived while the sheet was open. Act only on this route's ID.
+        final receiveSession = _matchingReceiveSession(ref.read(serverProvider)?.session);
+        final sendSession = widget.receiving ? null : ref.read(sendProvider)[widget.sessionId];
+        if (receiveSession != null) {
+          if (receiveSession.status == SessionStatus.sending || receiveSession.status == SessionStatus.finishedWithErrors) {
+            ref.notifier(serverProvider).cancelSession();
+          } else {
+            ref.notifier(serverProvider).closeSession();
+          }
+        } else if (sendSession != null) {
+          if (sendSession.status == SessionStatus.sending) {
+            ref.notifier(sendProvider).cancelSession(widget.sessionId);
+          } else {
+            ref.notifier(sendProvider).closeSession(widget.sessionId);
+          }
         }
       }
+      // Preserve the parent route, including an underlying send confirmation
+      // or the browser-sharing page, instead of discarding the entire stack.
+      Navigator.of(context).pop();
+    } finally {
+      _exiting = false;
     }
-    return result;
   }
 
   @override
   void dispose() {
-    super.dispose();
     _finishTimer?.cancel();
+    if (widget.receiving) {
+      final retained = ref.read(receiveResultsProvider).containsKey(widget.sessionId);
+      ref.notifier(receiveResultsProvider).remove(widget.sessionId);
+      if (retained && ref.read(serverProvider)?.session?.sessionId != widget.sessionId) {
+        ref.notifier(fileTransferProvider).removeSession(widget.sessionId);
+      }
+    }
     _wakelockPlusTimer?.cancel();
     TaskbarHelper.clearProgressBar(); // ignore: discarded_futures
     if (_useWakelock) {
@@ -189,6 +212,7 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
         WakelockPlus.disable(); // ignore: discarded_futures
       } catch (_) {}
     }
+    super.dispose();
   }
 
   @override
@@ -201,24 +225,25 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
 
     // No select: comparing the selected session runs the dart_mappable deep equality
     // over the whole files map on every state change.
-    final receiveSession = ref.watch(serverProvider)?.session;
-    final sendSession = ref.watch(sendProvider)[widget.sessionId];
+    final receiveSession = widget.receiving
+        ? _matchingReceiveSession(ref.watch(serverProvider)?.session) ?? ref.watch(receiveResultsProvider)[widget.sessionId]
+        : null;
+    final sendSession = widget.receiving ? null : ref.watch(sendProvider)[widget.sessionId];
 
     final SessionState? commonSessionState = receiveSession ?? sendSession;
 
     if (commonSessionState == null) {
       // The session no longer exists, e.g. a multi-send session that finished successfully
       // in background gets removed while this page is still open.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        if (ref.read(serverProvider)?.webUpload == true) {
-          context.global.dispatch(NavigateAction.popUntil<WebSharePage>());
-        } else {
-          context.global.dispatch(NavigateAction.popUntilRoot());
-        }
-      });
+      final routeIsCurrent = ModalRoute.of(context)?.isCurrent == true;
+      if (routeIsCurrent && !_exitScheduled) {
+        _exitScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _exitScheduled = false;
+          if (!mounted || ModalRoute.of(context)?.isCurrent != true || _readSession() != null) return;
+          Navigator.of(context).pop();
+        });
+      }
       return Scaffold(
         body: Container(),
       );
@@ -479,7 +504,7 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
                           ),
                           const SizedBox(height: 5),
                           TweenAnimationBuilder(
-                            tween: Tween<double>(begin: 0, end: _totalBytes == 0 ? 0 : currBytes / _totalBytes),
+                            tween: Tween<double>(begin: 0, end: status == SessionStatus.finished ? 1 : _totalBytes == 0 ? 0 : currBytes / _totalBytes),
                             duration: const Duration(milliseconds: 200),
                             curve: Curves.easeOut,
                             builder: (context, value, child) {

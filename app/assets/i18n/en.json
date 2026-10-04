@@ -146,7 +146,7 @@
       "requirePin": "@:webSharePage.requirePin",
       "requirePinDescription": "Require a PIN before accepting files",
       "autoFinish": "Auto Finish",
-      "autoFinishDescription": "Finish receiving once all files arrive",
+      "autoFinishDescription": "Automatically close completed sends. Received files stay open until you dismiss them",
       "destination": "Save to folder",
       "destinationDescription": "Choose where to save received files",
       "downloads": "(Downloads)",

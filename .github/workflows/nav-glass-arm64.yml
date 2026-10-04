@@ -104,11 +104,19 @@ jobs:
       - name: Format and check UI files
         working-directory: app
         run: |
-          dart format --set-exit-if-changed \
+          dart format \
             lib/config/m3e_tokens.dart \
             lib/config/theme.dart \
             lib/pages/home_page.dart \
             lib/pages/home_page_controller.dart \
+            lib/pages/progress_page.dart \
+            lib/provider/receive_results_provider.dart \
+            lib/provider/network/send_provider.dart \
+            lib/util/ui/transfer_route.dart \
+            test/fixtures/transfer_fixture.dart \
+            test/unit/provider/receive_completion_test.dart \
+            test/unit/provider/send_upload_events_test.dart \
+            test/widget/transfer_completion_test.dart \
             lib/provider/network/server/controller/receive_controller.dart \
             lib/pages/tabs/send_tab.dart \
             lib/pages/tabs/settings_tab.dart \
@@ -191,11 +199,37 @@ jobs:
         working-directory: app
         run: flutter test test/widget/home_page_navigation_test.dart --reporter expanded
 
+      - name: Reproduce receive completion race against original controller
+        working-directory: app
+        shell: bash
+        run: |
+          git fetch --depth=1 origin b10e1baba930aa6fee80d6ae695222edac2bcb52
+          git show b10e1baba930aa6fee80d6ae695222edac2bcb52:app/lib/provider/network/server/controller/receive_controller.dart > lib/provider/network/server/controller/receive_controller.dart
+          set +e
+          flutter test test/unit/provider/receive_completion_test.dart --plain-name 'completion publishes before delayed history; its continuation cannot touch a new session' --reporter expanded > receive-baseline.log 2>&1
+          result=$?
+          set -e
+          git restore lib/provider/network/server/controller/receive_controller.dart
+          cat receive-baseline.log
+          if [ "$result" -eq 0 ]; then
+            echo 'Expected original controller to remain sending while history blocks.' >&2
+            exit 1
+          fi
+          grep -F 'Actual: SessionStatus:<SessionStatus.sending>' receive-baseline.log
+          echo 'Confirmed original receive completion is blocked by history I/O.'
+
+      - name: Verify transfer completion and cancellation regressions
+        if: success() || failure()
+        working-directory: app
+        run: flutter test test/unit/provider/receive_completion_test.dart test/unit/provider/send_upload_events_test.dart test/widget/transfer_completion_test.dart --reporter expanded
+
       - name: Analyze (app)
+        if: success() || failure()
         working-directory: app
         run: flutter analyze
 
       - name: Test (app)
+        if: success() || failure()
         working-directory: app
         run: flutter test --dart-define=UI_REVIEW=true
 

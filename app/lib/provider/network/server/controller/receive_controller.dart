@@ -18,6 +18,7 @@ import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
 import 'package:localsend_app/provider/network/server/server_utils.dart';
 import 'package:localsend_app/provider/receive_history_provider.dart';
+import 'package:localsend_app/provider/receive_results_provider.dart';
 import 'package:localsend_app/provider/security_provider.dart';
 import 'package:localsend_app/provider/selection/selected_receiving_files_provider.dart';
 import 'package:localsend_app/provider/selection/selected_sending_files_provider.dart';
@@ -25,7 +26,6 @@ import 'package:localsend_app/provider/settings_provider.dart';
 import 'package:localsend_app/util/native/directories.dart';
 import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/util/native/tray_helper.dart';
-import 'package:localsend_app/widget/dialogs/open_file_dialog.dart';
 import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/file_status.dart';
@@ -52,6 +52,8 @@ class ReceiveController {
 
   ReceiveController(this.server);
 
+  String? _preparingSessionId;
+
   /// A device registered itself on this server.
   Future<void> onRegister(HttpServerRegisterEvent event) async {
     if (event.info.fingerprint == server.ref.read(securityProvider).certificateHash) {
@@ -69,6 +71,7 @@ class ReceiveController {
   /// The Rust server already checked the PIN and enforces that only one
   /// session can be active at a time.
   Future<void> onPrepareUpload(HttpServerPrepareUploadEvent event) async {
+    _preparingSessionId = event.sessionId;
     if (server.getStateOrNull()?.session != null) {
       // The Rust server is the authority on the single-session invariant:
       // a new request means the old session is over (e.g. finished but still
@@ -79,6 +82,8 @@ class ReceiveController {
     final settings = server.ref.read(settingsProvider);
     final destinationDir = settings.destination ?? await getDefaultDestinationDirectory();
     final cacheDir = await getCacheDirectory();
+    if (_preparingSessionId != event.sessionId || server.getStateOrNull() == null) return;
+    _preparingSessionId = null;
     final sessionId = event.sessionId;
     final files = {
       for (final entry in event.files.entries) entry.key: entry.value.toDart(),
@@ -147,6 +152,7 @@ class ReceiveController {
         () => ProgressPage(
           showAppBar: false,
           closeSessionOnClose: true,
+          receiving: true,
           sessionId: sessionId,
         ),
       );
@@ -182,10 +188,13 @@ class ReceiveController {
           );
     }
 
+    if (server.getStateOrNull()?.session?.sessionId != sessionId || server.getStateOrNull()?.session?.status != SessionStatus.waiting) return;
+
     final receiveProvider = ViewProvider((ref) {
       // No select: comparing the selected session runs the dart_mappable deep equality
       // over the whole files map on every state change.
-      final session = ref.watch(serverProvider)?.session;
+      final current = ref.watch(serverProvider)?.session;
+      final session = current?.sessionId == event.sessionId ? current : null;
       return ReceivePageVm(
         status: session?.status,
         sender: session?.sender ?? Device.empty,
@@ -193,6 +202,7 @@ class ReceiveController {
         files: session?.files.values.map((f) => f.file).toList() ?? [],
         message: message,
         onAccept: () async {
+          if (ref.read(serverProvider)?.session?.sessionId != event.sessionId) return;
           if (message != null) {
             // accept nothing
             await ref.notifier(serverProvider).acceptFileRequest({});
@@ -207,23 +217,27 @@ class ReceiveController {
           final selectedFiles = ref.read(selectedReceivingFilesProvider);
 
           // Push before accepting: the permission request in [acceptFileRequest] may block for a while.
+          Routerino.context.popUntil(ReceivePage);
           unawaited(
-            Routerino.context.pushAndRemoveUntilImmediately(
-              removeUntil: ReceivePage,
-              builder: () => ProgressPage(
+            Routerino.context.pushReplacement(
+              () => ProgressPage(
                 showAppBar: false,
                 closeSessionOnClose: true,
+                receiving: true,
                 sessionId: sessionId,
               ),
+              transition: RouterinoTransition.noTransition,
             ),
           );
 
           await ref.notifier(serverProvider).acceptFileRequest(selectedFiles);
         },
         onDecline: () {
+          if (ref.read(serverProvider)?.session?.sessionId != event.sessionId) return;
           ref.notifier(serverProvider).declineFileRequest();
         },
         onClose: () {
+          if (ref.read(serverProvider)?.session?.sessionId != event.sessionId) return;
           ref.notifier(serverProvider).closeSession();
         },
       );
@@ -274,7 +288,9 @@ class ReceiveController {
   /// The receive progress of a file reported by the server isolate.
   void onFileUploadProgress(HttpServerFileUploadProgressEvent event) {
     final receiveState = server.getStateOrNull()?.session;
-    if (receiveState == null || receiveState.sessionId != event.sessionId) {
+    if (receiveState == null || receiveState.sessionId != event.sessionId || receiveState.status != SessionStatus.sending ||
+        !receiveState.files.containsKey(event.fileId) ||
+        server.ref.read(fileTransferProvider).getStatus(sessionId: event.sessionId, fileId: event.fileId) != FileStatus.sending) {
       return;
     }
 
@@ -334,6 +350,9 @@ class ReceiveController {
       return;
     }
 
+    final previousStatus = server.ref.read(fileTransferProvider).getStatus(sessionId: event.sessionId, fileId: fileId);
+    if (previousStatus != FileStatus.queue && previousStatus != FileStatus.sending) return;
+
     final fileType = receivingFile.file.fileType;
     final filePath = event.path;
     final error = event.error;
@@ -350,23 +369,6 @@ class ReceiveController {
           ),
         ),
       );
-
-      // Track it in history
-      await server.ref
-          .redux(receiveHistoryProvider)
-          .dispatchAsync(
-            AddHistoryEntryAction(
-              entryId: fileId,
-              fileName: receivingFile.desiredName!,
-              fileType: fileType,
-              path: filePath,
-              savedToGallery: event.savedToGallery,
-              isMessage: false,
-              fileSize: receivingFile.file.size,
-              senderAlias: receiveState.senderAlias,
-              timestamp: DateTime.now().toUtc(),
-            ),
-          );
     } else {
       server.ref.notifier(fileTransferProvider).setStatus(sessionId: event.sessionId, fileId: fileId, status: FileStatus.failed);
       server.setState(
@@ -410,47 +412,37 @@ class ReceiveController {
           ),
         ),
       );
-      final settings = server.ref.read(settingsProvider);
-      // Only auto-close fully successful sessions: a failed file may still be
-      // retried by the sender (e.g. after a checksum mismatch), which requires
-      // the session to stay open.
-      bool quickSave = settings.quickSave && !hasError && server.getState().session?.message == null;
-      final quickSaveFromFavorites = settings.quickSaveFromFavorites && !hasError && server.getState().session?.message == null;
-      if (quickSaveFromFavorites) {
-        final bool isFavorite = server.ref.read(favoritesProvider).any((e) => e.fingerprint == session.sender.fingerprint);
-        if (isFavorite) {
-          quickSave = true;
-        }
-      }
-      if (quickSave) {
-        // close the session **after** the response has been sent
-        Future.delayed(Duration.zero, () {
-          closeSession();
-          _logger.info('Closing session');
-
-          // Keep the existing HomePage and its tab/controller state. Replacing the
-          // root repeats postInit and can interrupt an in-flight navigation animation.
-          server.ref.redux(homePageControllerProvider).dispatch(ChangeTabAction(HomeTab.receive));
-          server.ref.global.dispatch(NavigateAction.popUntilRoot());
-
-          // open the dialog to open file instantly
-          if (filePath != null && filePath.isNotEmpty) {
-            // ignore: discarded_futures
-            OpenFileDialog.open(
-              Routerino.context, // ignore: use_build_context_synchronously
-              filePath: filePath,
-              fileType: fileType,
-              openGallery: event.savedToGallery,
-            );
-          }
-        });
-      }
+      server.ref.notifier(receiveResultsProvider).retain(server.getState().session!);
       _logger.info('Received all files.');
+    }
+    if (error == null) {
+      // Persist after publishing completion. Disk I/O must not delay the result
+      // or let an old event mutate a replacement/cancelled session after await.
+      try {
+        await server.ref
+          .redux(receiveHistoryProvider)
+          .dispatchAsync(
+            AddHistoryEntryAction(
+              entryId: fileId,
+              fileName: receivingFile.desiredName!,
+              fileType: fileType,
+              path: filePath,
+              savedToGallery: event.savedToGallery,
+              isMessage: false,
+              fileSize: receivingFile.file.size,
+              senderAlias: receiveState.senderAlias,
+              timestamp: DateTime.now().toUtc(),
+            ),
+          );
+      } catch (error, stack) {
+        _logger.warning('Could not save receive history for ${event.sessionId}/${event.fileId}', error, stack);
+      }
     }
   }
 
   /// An upload session ended on the Rust server.
   void onSessionEnd(HttpServerSessionEndEvent event) {
+    if (event.reason == SessionEndReasonV2.cancelled && _preparingSessionId == event.sessionId) _preparingSessionId = null;
     final receiveSession = server.getStateOrNull()?.session;
     if (receiveSession == null || receiveSession.sessionId != event.sessionId) {
       return;
@@ -467,6 +459,7 @@ class ReceiveController {
 
   /// The sender aborted the request while the user was still deciding.
   void onPrepareUploadAborted(HttpServerPrepareUploadAbortedEvent event) {
+    if (_preparingSessionId == event.sessionId) _preparingSessionId = null;
     final receiveSession = server.getStateOrNull()?.session;
     if (receiveSession == null || receiveSession.sessionId != event.sessionId || receiveSession.status != SessionStatus.waiting) {
       return;
@@ -589,19 +582,15 @@ class ReceiveController {
       }
     }
 
-    // Keep the process alive for the whole transfer. Started here because:
-    // - the app is still in the foreground, and Android 12+ rejects starting a foreground service
-    //   from the background,
-    // - the service may ask for the notification permission, which Android cancels when it overlaps
-    //   with the storage permission requests above.
-    TransferNotification.start(sessionId: session.sessionId, receiving: true);
-
-    // From here on, the server isolate receives all accepted files on its own
-    // and reports back via upload progress/result events.
     final updatedSession = server.getStateOrNull()?.session;
-    if (updatedSession == null) {
+    if (updatedSession == null || updatedSession.sessionId != session.sessionId || updatedSession.status != SessionStatus.sending) {
       return;
     }
+
+    // Start while still in the foreground, after storage permission, and only
+    // if this is still the request the user accepted.
+    TransferNotification.start(sessionId: session.sessionId, receiving: true);
+
     server.ref
         .redux(parentIsolateProvider)
         .dispatch(IsolateHttpServerPrepareUploadDecisionAction(config: _buildReceiveConfig(updatedSession, fileNameMap)));
@@ -696,23 +685,19 @@ class ReceiveController {
         session: null,
       ),
     );
-    server.ref.notifier(fileTransferProvider).removeSession(sessionId);
+    if (!server.ref.read(receiveResultsProvider).containsKey(sessionId)) {
+      server.ref.notifier(fileTransferProvider).removeSession(sessionId);
+    }
   }
 }
 
 void _cancelBySender(ServerUtils server) {
   final receiveSession = server.getStateOrNull()?.session;
-  if (receiveSession == null) {
+  if (receiveSession == null || receiveSession.status == SessionStatus.finished) {
     return;
   }
 
   TransferNotification.stop(receiveSession.sessionId);
-
-  if (receiveSession.status == SessionStatus.waiting) {
-    // received cancel during accept/decline
-    // pop just in case if user is in [ReceiveOptionsPage]
-    Routerino.context.popUntil(ReceivePage);
-  }
 
   server.setState(
     (oldState) => oldState?.copyWith(
@@ -722,6 +707,10 @@ void _cancelBySender(ServerUtils server) {
       ),
     ),
   );
+  if (receiveSession.status != SessionStatus.waiting) {
+    server.ref.notifier(receiveResultsProvider).retain(server.getState().session!);
+  }
+
 }
 
 extension on ReceiveSessionState {

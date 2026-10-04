@@ -1208,8 +1208,8 @@ class Translations$settingsTab$receive$en {
   /// en: 'Auto Finish'
   String get autoFinish => 'Auto Finish';
 
-  /// en: 'Finish receiving once all files arrive'
-  String get autoFinishDescription => 'Finish receiving once all files arrive';
+  /// en: 'Automatically close completed sends. Received files stay open until you dismiss them'
+  String get autoFinishDescription => 'Automatically close completed sends. Received files stay open until you dismiss them';
 
   /// en: 'Save to folder'
   String get destination => 'Save to folder';
