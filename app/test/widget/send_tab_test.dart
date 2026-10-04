@@ -726,7 +726,6 @@ SettingsState _fixtureSettings() {
     https: false,
     sendMode: SendMode.single,
     saveWindowPlacement: false,
-    enableAnimations: false,
     deviceType: DeviceType.desktop,
     deviceModel: null,
     shareViaLinkAutoAccept: false,

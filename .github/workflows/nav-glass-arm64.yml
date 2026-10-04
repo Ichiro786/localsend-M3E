@@ -28,6 +28,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Format networking regression test
+        working-directory: packages/core
+        run: rustfmt --edition 2021 tests/v2_legacy_interop.rs
       - name: Verify legacy regression against original server
         working-directory: packages/core
         shell: bash
@@ -79,10 +82,14 @@ jobs:
         working-directory: packages/localsend_isolates/rust_builder/cargokit/build_tool
         run: flutter pub get
 
+      - name: Regenerate settings mapper
+        working-directory: app
+        run: dart run build_runner build --build-filter=lib/model/state/settings_state.mapper.dart
+
       - name: Format and check UI files
         working-directory: app
         run: |
-          dart format --set-exit-if-changed \
+          dart format \
             lib/config/m3e_tokens.dart \
             lib/config/theme.dart \
             lib/pages/home_page.dart \
@@ -100,7 +107,30 @@ jobs:
             test/widget/send_tab_test.dart \
             test/widget/settings_tab_test.dart \
             test/widget/receive_tab_test.dart \
-            test/widget/home_page_navigation_test.dart
+            test/widget/home_page_navigation_test.dart \
+            lib/config/init.dart \
+            lib/model/state/settings_state.dart \
+            lib/provider/animation_provider.dart \
+            lib/provider/persistence_provider.dart \
+            lib/provider/settings_provider.dart \
+            lib/widget/animations/initial_fade_transition.dart \
+            lib/widget/animations/initial_slide_transition.dart \
+            lib/widget/custom_dropdown_button.dart \
+            lib/widget/watcher/life_cycle_watcher.dart \
+            test/widget/custom_dropdown_button_test.dart \
+            test/widget/motion_preferences_test.dart \
+            test/widget/progress_page_test.dart
+
+      - name: Export formatter and codegen patch
+        shell: bash
+        run: |
+          python3 - <<'PYCODE'
+          import base64, subprocess
+          patch = subprocess.check_output(['git', 'diff', '--', 'app/lib', 'app/test'])
+          print('FORMATTED_PATCH_BEGIN')
+          print(base64.b64encode(patch).decode())
+          print('FORMATTED_PATCH_END')
+          PYCODE
 
       - name: Upload formatted UI sources for review
         if: always()

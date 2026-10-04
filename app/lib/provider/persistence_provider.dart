@@ -18,7 +18,6 @@ import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/util/security_helper.dart';
 import 'package:localsend_app/util/shared_preferences/shared_preferences_file.dart';
 import 'package:localsend_app/util/shared_preferences/shared_preferences_portable.dart';
-import 'package:localsend_app/util/ui/animations_status.dart';
 import 'package:localsend_isolates/constants.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/stored_security_context.dart';
@@ -86,7 +85,6 @@ const _autoFinish = 'ls_auto_finish';
 const _minimizeToTray = 'ls_minimize_to_tray';
 const _https = 'ls_https';
 const _sendMode = 'ls_send_mode';
-const _enableAnimations = 'ls_enable_animations';
 const _deviceType = 'ls_device_type';
 const _deviceModel = 'ls_device_model';
 const _shareViaLinkAutoAccept = 'ls_share_via_link_auto_accept';
@@ -174,13 +172,8 @@ class PersistenceService {
       await prefs.setString(_securityContext, jsonEncode(await generateSecurityContext()));
     }
 
-    if (isFirstAppStart) {
-      final systemAnimations = await getSystemAnimationsStatus();
-      if (!systemAnimations) {
-        _logger.info('System animations are disabled, disabling animations in the app.');
-        await prefs.setBool(_enableAnimations, false);
-      }
-    }
+    // Retire the old app preference; platform accessibility now owns motion.
+    await prefs.remove('ls_enable_animations');
 
     if (prefs.getString(_colorKey) == null) {
       await _initColorSetting(prefs, supportsDynamicColors);
@@ -555,14 +548,6 @@ class PersistenceService {
   bool getSaveWindowPlacement() {
     if (!checkPlatformIsNotWaylandDesktop()) return false;
     return _prefs.getBool(_saveWindowPlacement) ?? true;
-  }
-
-  Future<void> setEnableAnimations(bool enableAnimations) async {
-    await _prefs.setBool(_enableAnimations, enableAnimations);
-  }
-
-  bool getEnableAnimations() {
-    return _prefs.getBool(_enableAnimations) ?? true;
   }
 
   DeviceType? getDeviceType() {

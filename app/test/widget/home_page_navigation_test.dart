@@ -492,7 +492,6 @@ SettingsState _fixtureSettings({bool quickSave = false, bool quickSaveFromFavori
     https: false,
     sendMode: SendMode.multiple,
     saveWindowPlacement: false,
-    enableAnimations: true,
     deviceType: DeviceType.desktop,
     deviceModel: null,
     shareViaLinkAutoAccept: false,

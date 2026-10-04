@@ -37,6 +37,7 @@ import 'package:localsend_app/util/native/macos_channel.dart';
 import 'package:localsend_app/util/native/platform_check.dart';
 import 'package:localsend_app/util/native/tray_helper.dart';
 import 'package:localsend_app/util/notification_strings.dart';
+import 'package:localsend_app/util/ui/animations_status.dart';
 import 'package:localsend_app/util/ui/dynamic_colors.dart';
 import 'package:localsend_app/util/ui/snackbar.dart';
 import 'package:localsend_app/widget/dialogs/local_network_dialog.dart';
@@ -134,6 +135,8 @@ Future<RefenaContainer> preInit(List<String> args) async {
 
   setDefaultRouteTransition();
 
+  final systemAnimations = await getSystemAnimationsStatus();
+
   final container = RefenaContainer(
     observers: kDebugMode ? [CustomRefenaObserver()] : [],
     overrides: [
@@ -143,6 +146,7 @@ Future<RefenaContainer> preInit(List<String> args) async {
       tvProvider.overrideWithValue(await checkIfTv()),
       dynamicColorsProvider.overrideWithValue(dynamicColors),
       sleepProvider.overrideWithInitialState((ref) => startHidden),
+      reducedMotionProvider.overrideWithInitialState((ref) => !systemAnimations),
     ],
     platformHint: RefenaScope.getPlatformHint(), // help Refena know the correct platform
   );

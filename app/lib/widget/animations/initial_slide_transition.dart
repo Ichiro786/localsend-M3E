@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:localsend_app/provider/settings_provider.dart';
+import 'package:localsend_app/provider/animation_provider.dart';
 import 'package:localsend_isolates/util/sleep.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
@@ -33,7 +33,8 @@ class _InitialSlideTransitionState extends State<InitialSlideTransition> {
     super.initState();
     _offset = widget.origin;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final delay = context.read(settingsProvider).enableAnimations ? widget.delay.inMilliseconds : 0;
+      if (!mounted) return;
+      final delay = context.read(animationProvider) && !MediaQuery.disableAnimationsOf(context) ? widget.delay.inMilliseconds : 0;
       await sleepAsync(delay);
       if (!mounted) {
         return;
@@ -49,7 +50,7 @@ class _InitialSlideTransitionState extends State<InitialSlideTransition> {
     return AnimatedSlide(
       offset: _offset,
       curve: widget.curve,
-      duration: widget.duration,
+      duration: context.watch(animationProvider) && !MediaQuery.disableAnimationsOf(context) ? widget.duration : Duration.zero,
       child: widget.child,
     );
   }

@@ -155,7 +155,7 @@ class SettingsTab extends StatelessWidget {
                           ? t.settingsTab.general.saveWindowPlacementWindows
                           : t.settingsTab.general.saveWindowPlacement,
                       trailing: M3eExpressiveSwitch(
-                        animationsEnabled: vm.settings.enableAnimations,
+                        animationsEnabled: motionAllowed,
                         value: vm.settings.saveWindowPlacement,
                         onChanged: (b) async {
                           await ref.notifier(settingsProvider).setSaveWindowPlacement(b);
@@ -171,7 +171,7 @@ class SettingsTab extends StatelessWidget {
                       supportingText: t.settingsTab.general.minimizeToTrayDescription,
                       semanticLabel: t.settingsTab.general.minimizeToTray,
                       trailing: M3eExpressiveSwitch(
-                        animationsEnabled: vm.settings.enableAnimations,
+                        animationsEnabled: motionAllowed,
                         value: vm.settings.minimizeToTray,
                         onChanged: (b) async {
                           await ref.notifier(settingsProvider).setMinimizeToTray(b);
@@ -187,7 +187,7 @@ class SettingsTab extends StatelessWidget {
                       supportingText: t.settingsTab.general.launchAtStartupDescription,
                       semanticLabel: t.settingsTab.general.launchAtStartup,
                       trailing: M3eExpressiveSwitch(
-                        animationsEnabled: vm.settings.enableAnimations,
+                        animationsEnabled: motionAllowed,
                         value: vm.autoStart,
                         onChanged: (_) => vm.onToggleAutoStart(context),
                         semanticLabel: '${t.settingsTab.general.launchAtStartup}, ${vm.autoStart ? t.general.on : t.general.off}',
@@ -206,7 +206,7 @@ class SettingsTab extends StatelessWidget {
                           supportingText: t.settingsTab.general.launchMinimizedDescription,
                           semanticLabel: t.settingsTab.general.launchMinimized,
                           trailing: M3eExpressiveSwitch(
-                            animationsEnabled: vm.settings.enableAnimations,
+                            animationsEnabled: motionAllowed,
                             value: vm.autoStartLaunchHidden,
                             onChanged: (_) => vm.onToggleAutoStartLaunchHidden(context),
                             semanticLabel: '${t.settingsTab.general.launchMinimized}, ${vm.autoStartLaunchHidden ? t.general.on : t.general.off}',
@@ -222,7 +222,7 @@ class SettingsTab extends StatelessWidget {
                       supportingText: t.settingsTab.general.showInContextMenuDescription,
                       semanticLabel: t.settingsTab.general.showInContextMenu,
                       trailing: M3eExpressiveSwitch(
-                        animationsEnabled: vm.settings.enableAnimations,
+                        animationsEnabled: motionAllowed,
                         value: vm.showInContextMenu,
                         onChanged: (_) => vm.onToggleShowInContextMenu(context),
                         semanticLabel: '${t.settingsTab.general.showInContextMenu}, ${vm.showInContextMenu ? t.general.on : t.general.off}',
@@ -230,20 +230,6 @@ class SettingsTab extends StatelessWidget {
                     ),
                   ],
                 ],
-                M3eSettingsRow(
-                  icon: Icons.animation_outlined,
-                  title: t.settingsTab.general.animations,
-                  supportingText: t.settingsTab.general.animationsDescription,
-                  semanticLabel: t.settingsTab.general.animations,
-                  trailing: M3eExpressiveSwitch(
-                    animationsEnabled: vm.settings.enableAnimations,
-                    value: vm.settings.enableAnimations,
-                    onChanged: (b) async {
-                      await ref.notifier(settingsProvider).setEnableAnimations(b);
-                    },
-                    semanticLabel: '${t.settingsTab.general.animations}, ${vm.settings.enableAnimations ? t.general.on : t.general.off}',
-                  ),
-                ),
               ],
             ),
             _SettingsSection(
@@ -256,7 +242,7 @@ class SettingsTab extends StatelessWidget {
                   supportingText: t.settingsTab.receive.quickSaveDescription,
                   semanticLabel: t.settingsTab.receive.quickSave,
                   trailing: M3eExpressiveSwitch(
-                    animationsEnabled: vm.settings.enableAnimations,
+                    animationsEnabled: motionAllowed,
                     value: vm.settings.quickSave,
                     onChanged: (b) async {
                       final old = vm.settings.quickSave;
@@ -277,7 +263,7 @@ class SettingsTab extends StatelessWidget {
                   supportingText: t.settingsTab.receive.quickSaveFromFavoritesDescription,
                   semanticLabel: t.settingsTab.receive.quickSaveFromFavorites,
                   trailing: M3eExpressiveSwitch(
-                    animationsEnabled: vm.settings.enableAnimations,
+                    animationsEnabled: motionAllowed,
                     value: vm.settings.quickSaveFromFavorites,
                     onChanged: (b) async {
                       final old = vm.settings.quickSaveFromFavorites;
@@ -299,7 +285,7 @@ class SettingsTab extends StatelessWidget {
                   supportingText: t.settingsTab.receive.requirePinDescription,
                   semanticLabel: t.settingsTab.receive.requirePin,
                   trailing: M3eExpressiveSwitch(
-                    animationsEnabled: vm.settings.enableAnimations,
+                    animationsEnabled: motionAllowed,
                     value: vm.settings.receivePin != null,
                     onChanged: (b) async {
                       final currentPIN = vm.settings.receivePin;
@@ -362,7 +348,7 @@ class SettingsTab extends StatelessWidget {
                     supportingText: t.settingsTab.receive.saveToGalleryDescription,
                     semanticLabel: t.settingsTab.receive.saveToGallery,
                     trailing: M3eExpressiveSwitch(
-                      animationsEnabled: vm.settings.enableAnimations,
+                      animationsEnabled: motionAllowed,
                       value: vm.settings.saveToGallery,
                       onChanged: (b) async {
                         await ref.notifier(settingsProvider).setSaveToGallery(b);
@@ -376,7 +362,7 @@ class SettingsTab extends StatelessWidget {
                   supportingText: t.settingsTab.receive.autoFinishDescription,
                   semanticLabel: t.settingsTab.receive.autoFinish,
                   trailing: M3eExpressiveSwitch(
-                    animationsEnabled: vm.settings.enableAnimations,
+                    animationsEnabled: motionAllowed,
                     value: vm.settings.autoFinish,
                     onChanged: (b) async {
                       await ref.notifier(settingsProvider).setAutoFinish(b);
@@ -390,7 +376,7 @@ class SettingsTab extends StatelessWidget {
                   supportingText: t.settingsTab.receive.saveToHistoryDescription,
                   semanticLabel: t.settingsTab.receive.saveToHistory,
                   trailing: M3eExpressiveSwitch(
-                    animationsEnabled: vm.settings.enableAnimations,
+                    animationsEnabled: motionAllowed,
                     value: vm.settings.saveToHistory,
                     onChanged: (b) async {
                       await ref.notifier(settingsProvider).setSaveToHistory(b);
@@ -405,7 +391,7 @@ class SettingsTab extends StatelessWidget {
                     supportingText: t.settingsTab.receive.verifyChecksumsDescription,
                     semanticLabel: t.settingsTab.receive.verifyChecksums,
                     trailing: M3eExpressiveSwitch(
-                      animationsEnabled: vm.settings.enableAnimations,
+                      animationsEnabled: motionAllowed,
                       value: vm.settings.verifyChecksums,
                       onChanged: (b) async {
                         await ref.notifier(settingsProvider).setVerifyChecksums(b);
@@ -431,7 +417,7 @@ class SettingsTab extends StatelessWidget {
                     supportingText: t.settingsTab.send.shareViaLinkAutoAcceptDescription,
                     semanticLabel: t.settingsTab.send.shareViaLinkAutoAccept,
                     trailing: M3eExpressiveSwitch(
-                      animationsEnabled: vm.settings.enableAnimations,
+                      animationsEnabled: motionAllowed,
                       value: vm.settings.shareViaLinkAutoAccept,
                       onChanged: (b) async {
                         await ref.notifier(settingsProvider).setShareViaLinkAutoAccept(b);
@@ -446,7 +432,7 @@ class SettingsTab extends StatelessWidget {
                     supportingText: t.settingsTab.send.createChecksumsDescription,
                     semanticLabel: t.settingsTab.send.createChecksums,
                     trailing: M3eExpressiveSwitch(
-                      animationsEnabled: vm.settings.enableAnimations,
+                      animationsEnabled: motionAllowed,
                       value: vm.settings.createChecksums,
                       onChanged: (b) async {
                         await ref.notifier(settingsProvider).setCreateChecksums(b);
@@ -684,7 +670,7 @@ class SettingsTab extends StatelessWidget {
                     supportingText: t.settingsTab.network.encryptionDescription,
                     semanticLabel: t.settingsTab.network.encryption,
                     trailing: M3eExpressiveSwitch(
-                      animationsEnabled: vm.settings.enableAnimations,
+                      animationsEnabled: motionAllowed,
                       value: vm.settings.https,
                       onChanged: (b) async {
                         final old = vm.settings.https;
@@ -813,7 +799,7 @@ class SettingsTab extends StatelessWidget {
               supportingText: t.settingsTab.advancedSettingsDescription,
               semanticLabel: t.settingsTab.advancedSettings,
               trailing: M3eExpressiveSwitch(
-                animationsEnabled: vm.settings.enableAnimations,
+                animationsEnabled: motionAllowed,
                 value: vm.advanced,
                 onChanged: (b) async {
                   vm.onTapAdvanced(b);

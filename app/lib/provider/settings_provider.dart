@@ -66,7 +66,6 @@ class SettingsService extends PureNotifier<SettingsState> {
     https: _persistence.isHttps(),
     sendMode: _persistence.getSendMode(),
     saveWindowPlacement: _persistence.getSaveWindowPlacement(),
-    enableAnimations: _persistence.getEnableAnimations(),
     deviceType: _persistence.getDeviceType(),
     deviceModel: _persistence.getDeviceModel(),
     shareViaLinkAutoAccept: _persistence.getShareViaLinkAutoAccept(),
@@ -244,13 +243,6 @@ class SettingsService extends PureNotifier<SettingsState> {
     await _persistence.setSaveWindowPlacement(savePlacement);
     state = state.copyWith(
       saveWindowPlacement: savePlacement,
-    );
-  }
-
-  Future<void> setEnableAnimations(bool enableAnimations) async {
-    await _persistence.setEnableAnimations(enableAnimations);
-    state = state.copyWith(
-      enableAnimations: enableAnimations,
     );
   }
 

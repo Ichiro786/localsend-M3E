@@ -46,6 +46,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(M3eSettingsRow), findsWidgets);
+      expect(find.text(t.settingsTab.general.animations), findsNothing);
       expect(find.byType(M3eSettingsIcon), findsWidgets);
       expect(find.byIcon(Icons.download_outlined), findsOneWidget);
       expect(find.text(t.settingsTab.receive.quickSave), findsOneWidget);
@@ -166,7 +167,6 @@ void main() {
         await tester.runAsync(() => LocaleSettings.setLocale(locale));
         _setViewport(tester, Size(width, height));
         final initial = _fixtureSettings().copyWith(
-          enableAnimations: false,
           colorMode: mode,
           advancedSettings: advanced,
           alias: 'A very long device name that stays editable without covering its icons',
@@ -321,7 +321,6 @@ SettingsState _fixtureSettings({bool quickSave = false, bool quickSaveFromFavori
     https: false,
     sendMode: SendMode.multiple,
     saveWindowPlacement: false,
-    enableAnimations: true,
     deviceType: DeviceType.desktop,
     deviceModel: null,
     shareViaLinkAutoAccept: false,
