@@ -28,7 +28,25 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Reproduce legacy HTTPS interoperability
+      - name: Verify legacy regression against original server
+        working-directory: packages/core
+        shell: bash
+        run: |
+          git fetch --depth=1 origin 8b3749776195b176e5acb00ccacf87aad8e328bd
+          git show 8b3749776195b176e5acb00ccacf87aad8e328bd:packages/core/src/http/server/mod.rs > src/http/server/mod.rs
+          set +e
+          cargo test --features full --test v2_legacy_interop -- --nocapture > baseline.log 2>&1
+          result=$?
+          set -e
+          git restore src/http/server/mod.rs
+          if [ "$result" -eq 0 ]; then
+            cat baseline.log
+            echo 'Expected original server to reject a legacy HTTPS peer.' >&2
+            exit 1
+          fi
+          grep -E 'CertificateRequired|certificate required' baseline.log
+          echo 'Confirmed original server fails at TLS client-certificate negotiation.'
+      - name: Verify fixed legacy HTTPS interoperability
         working-directory: packages/core
         run: cargo test --features full --test v2_legacy_interop -- --nocapture
       - name: Test networking core

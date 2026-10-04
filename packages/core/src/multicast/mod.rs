@@ -325,6 +325,25 @@ pub async fn start(
     })
 }
 
+// The v2.0/v2.1 fallback response must not trigger another response. Keep
+// flagless v2.2 announcements working, and accept the old `announcement` name.
+#[derive(serde::Deserialize)]
+struct ReceivedMessage {
+    #[serde(flatten)]
+    message: MulticastMessageV2,
+    announce: Option<bool>,
+    announcement: Option<bool>,
+}
+
+fn parse_announcement(bytes: &[u8]) -> serde_json::Result<Option<MulticastMessageV2>> {
+    let received: ReceivedMessage = serde_json::from_slice(bytes)?;
+    if received.announce.or(received.announcement).unwrap_or(true) {
+        Ok(Some(received.message))
+    } else {
+        Ok(None)
+    }
+}
+
 /// Reads discovery messages from a single interface until discovery is stopped
 /// or the socket keeps failing.
 async fn receive_loop(
@@ -364,8 +383,9 @@ async fn receive_loop(
             }
         };
 
-        let message = match serde_json::from_slice::<MulticastMessageV2>(&buffer[..size]) {
-            Ok(message) => message,
+        let message = match parse_announcement(&buffer[..size]) {
+            Ok(Some(message)) => message,
+            Ok(None) => continue,
             Err(err) => {
                 tracing::warn!("Could not parse multicast message from {source}: {err:#}");
                 continue;
@@ -396,6 +416,27 @@ async fn receive_loop(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_udp_responses_do_not_trigger_registration_loops() {
+        let base = serde_json::json!({
+            "alias": "Legacy", "version": "2.1", "fingerprint": "peer",
+            "port": 53317, "protocol": "https"
+        });
+        for (announce, announcement, expected) in [
+            (None, None, true),
+            (Some(true), Some(true), true),
+            (Some(false), Some(false), false),
+            (Some(false), None, false),
+            (None, Some(false), false),
+        ] {
+            let mut json = base.clone();
+            if let Some(flag) = announce { json["announce"] = flag.into(); }
+            if let Some(flag) = announcement { json["announcement"] = flag.into(); }
+            let bytes = serde_json::to_vec(&json).unwrap();
+            assert_eq!(parse_announcement(&bytes).unwrap().is_some(), expected);
+        }
+    }
 
     #[test]
     fn test_sent_message_carries_legacy_announce_flag() {

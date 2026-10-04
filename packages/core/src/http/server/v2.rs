@@ -28,9 +28,9 @@ use uuid::Uuid;
 pub enum ServerEventV2 {
     /// A device registered itself via `POST /api/localsend/v2/register`.
     ///
-    /// On TLS, this event is only emitted when `info.fingerprint` matches the
-    /// SHA-256 fingerprint of the client certificate verified during the mTLS
-    /// handshake, so the fingerprint cannot be spoofed.
+    /// When a TLS client certificate is presented, `info.fingerprint` is
+    /// replaced with its verified SHA-256 fingerprint. Legacy peers without
+    /// a client certificate keep their advertised fingerprint.
     Register {
         /// The IP address of the remote device.
         ip: PeerIp,
@@ -58,7 +58,7 @@ pub enum ServerEventV2 {
         /// The SHA-256 fingerprint (uppercase hex) of the sender's client
         /// certificate verified during the mTLS handshake. Unlike
         /// `info.fingerprint`, this value cannot be spoofed.
-        /// `None` when the server runs without TLS.
+        /// `None` without TLS or when a legacy peer sends no client certificate.
         cert_fingerprint: Option<String>,
 
         /// The offered files, mapped by file ID.
@@ -156,37 +156,23 @@ pub(crate) async fn register(
     state: AppState,
     client_info: RequestClientInfo,
 ) -> Result<JsonResponse<RegisterResponseDtoV2>, AppError> {
-    let payload = body.collect_to_json::<RegisterDtoV2>().await?;
+    let mut payload = body.collect_to_json::<RegisterDtoV2>().await?;
 
-    // On TLS, only trust registrations whose claimed fingerprint is proven
-    // by the client certificate of the mTLS handshake.
-    let fingerprint_valid = match client_info.cert_fingerprint() {
-        Some(cert_fingerprint) => payload.fingerprint.to_ascii_uppercase() == cert_fingerprint,
-        None => true,
-    };
+    // The protocol ignores the body's fingerprint when a client certificate
+    // identifies the peer. Normalize the event to that verified identity;
+    // clients without a certificate retain the legacy advertised identity.
+    if let Some(fingerprint) = client_info.cert_fingerprint() {
+        payload.fingerprint = fingerprint;
+    }
 
     if let Some(v2) = &state.v2 {
-        if fingerprint_valid {
-            // Not awaited: registrations arrive in bursts (every device on the
-            // network answers an announcement, and a peer scanning its subnet
-            // registers with everyone), so the channel fills up easily. Waiting
-            // would block this request handler — and every later one — until
-            // the application catches up, which is what makes the device stop
-            // answering `register` altogether.
-            //
-            // The event carries no responder, and peers repeat their
-            // announcement, so a dropped registration is recoverable.
-            if let Err(err) = v2.event_tx.try_send(ServerEventV2::Register {
-                ip: client_info.ip,
-                info: payload,
-            }) {
-                tracing::debug!("Dropped a register event: {err}");
-            }
-        } else {
-            tracing::warn!(
-                "Ignoring register from {}: claimed fingerprint does not match the client certificate",
-                client_info.ip
-            );
+        // Registrations arrive in bursts. Never stall HTTP discovery waiting
+        // for the application to drain its event channel.
+        if let Err(err) = v2.event_tx.try_send(ServerEventV2::Register {
+            ip: client_info.ip,
+            info: payload,
+        }) {
+            tracing::debug!("Dropped a register event: {err}");
         }
     }
 

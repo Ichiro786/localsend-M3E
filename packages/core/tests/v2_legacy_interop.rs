@@ -55,7 +55,7 @@ async fn legacy_https_peer_can_register_and_upload_without_client_certificate() 
         match events.recv().await.unwrap() {
             ServerEventV2::PrepareUpload { cert_fingerprint, decision_tx, .. } => {
                 assert!(cert_fingerprint.is_none());
-                decision_tx.send(PrepareUploadDecisionV2::Accept(vec!["file".into()])).unwrap();
+                decision_tx.send(PrepareUploadDecisionV2::Accept(["file".into()].into_iter().collect())).unwrap();
             }
             event => panic!("unexpected event: {event:?}"),
         }
@@ -64,10 +64,10 @@ async fn legacy_https_peer_can_register_and_upload_without_client_certificate() 
     let response = response.unwrap();
     assert_eq!(response.status().as_u16(), 200);
     let session: serde_json::Value = response.json().await.unwrap();
-    let upload = peer.post(format!("{base}/v2/upload")).query(&[
-        ("sessionId", session["sessionId"].as_str().unwrap()),
-        ("fileId", "file"), ("token", session["files"]["file"].as_str().unwrap()),
-    ]).body(Bytes::from_static(content)).send();
+    let upload = peer.post(format!(
+        "{base}/v2/upload?sessionId={}&fileId=file&token={}",
+        session["sessionId"].as_str().unwrap(), session["files"]["file"].as_str().unwrap()
+    )).body(Bytes::from_static(content)).send();
     let receive = async {
         match events.recv().await.unwrap() {
             ServerEventV2::FileUpload { target_tx, .. } => {

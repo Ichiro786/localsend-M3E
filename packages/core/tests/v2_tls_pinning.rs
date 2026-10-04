@@ -346,23 +346,18 @@ async fn test_upload_body_not_sent_on_fingerprint_mismatch() {
     assert!(server.received.lock().await.is_empty());
 }
 
-/// Without the web pages, the client certificate stays mandatory: a client
-/// without one (e.g. a browser) must fail the handshake.
+/// Protocol-v2 discovery also supports legacy clients with no client certificate.
 #[tokio::test]
-async fn test_client_without_cert_rejected() {
+async fn test_client_without_cert_allowed_for_v2() {
     let server_identity = generate_identity();
     let server = start_tls_server(&server_identity).await;
     let client = LsHttpClientV2::try_new_without_cert().unwrap();
 
     let result = client
         .info(ProtocolType::Https, "127.0.0.1", server.port)
-        .await;
-
-    assert!(
-        matches!(result, Err(ClientError::Reqwest(_))),
-        "expected the handshake to fail, got {:?}",
-        result.err()
-    );
+        .await
+        .expect("legacy v2 discovery should succeed without a client certificate");
+    assert_eq!(result.fingerprint, server_identity.fingerprint);
 }
 
 /// With the web pages served, the client certificate is optional so that

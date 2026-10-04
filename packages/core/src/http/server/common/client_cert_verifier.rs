@@ -48,7 +48,10 @@ impl ClientCertVerifier for CustomClientCertVerifier {
     }
 
     fn root_hint_subjects(&self) -> &[DistinguishedName] {
-        self.inner.root_hint_subjects()
+        // Peers have independent self-signed identities, not certificates
+        // issued by this server. Advertising our own subject can make a
+        // client's issuer-filtering resolver withhold its identity.
+        &[]
     }
 
     fn verify_client_cert(

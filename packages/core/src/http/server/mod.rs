@@ -482,9 +482,12 @@ async fn start_server_with_listener(
     cancel: CancellationToken,
     connections: TaskTracker,
 ) -> anyhow::Result<()> {
-    // Browsers have no client certificate, so presenting one is optional while
-    // the web pages are served. A certificate that is presented is still verified.
-    let mandatory_client_auth = app_state.web.is_none() && !app_state.web_upload;
+    // Protocol v2 predates mutual TLS: legacy peers may have no client
+    // certificate. Request and verify one when available, while keeping the
+    // v3-only server's mandatory authentication unchanged.
+    let mandatory_client_auth = app_state.v2.is_none()
+        && app_state.web.is_none()
+        && !app_state.web_upload;
 
     let tls_acceptor = match tls_config {
         Some(tls_config) => Some(

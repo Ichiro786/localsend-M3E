@@ -28,9 +28,9 @@ use tokio::sync::{Mutex, mpsc, oneshot};
 pub enum RsServerEvent {
     /// A device registered itself via `POST /api/localsend/v2/register`.
     ///
-    /// On TLS, this event is only emitted when `info.fingerprint` matches the
-    /// fingerprint of the client certificate verified during the mTLS
-    /// handshake, so the fingerprint cannot be spoofed.
+    /// With a TLS client certificate, `info.fingerprint` is its verified
+    /// SHA-256 fingerprint. Legacy peers without one retain their advertised
+    /// fingerprint.
     Register { ip: String, info: RegisterDtoV2 },
 
     /// A sender requests to upload files via `POST /api/localsend/v2/prepare-upload`.
