@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:localsend_app/config/m3e_tokens.dart';
 import 'package:localsend_app/config/theme.dart';
 
 /// A [DropdownButton] with a custom theme.
@@ -18,9 +19,15 @@ class CustomDropdownButton<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Material(
-      color: Theme.of(context).inputDecorationTheme.fillColor,
-      shape: RoundedRectangleBorder(borderRadius: Theme.of(context).inputDecorationTheme.borderRadius),
+      color: theme.inputDecorationTheme.fillColor ?? scheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: theme.inputDecorationTheme.borderRadius,
+        side: M3eTokens.outline(scheme, opacity: 0.72),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: DropdownButton<T>(
         value: value,
         isExpanded: expanded,
