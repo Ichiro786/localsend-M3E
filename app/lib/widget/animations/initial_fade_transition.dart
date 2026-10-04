@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:localsend_app/provider/animation_provider.dart';
-import 'package:localsend_isolates/util/sleep.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
 class InitialFadeTransition extends StatefulWidget {
@@ -22,27 +23,45 @@ class InitialFadeTransition extends StatefulWidget {
 class _InitialFadeTransitionState extends State<InitialFadeTransition> {
   double _opacity = 0;
 
+  Timer? _delayTimer;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final delay = context.read(animationProvider) && !MediaQuery.disableAnimationsOf(context) ? widget.delay.inMilliseconds : 0;
-      await sleepAsync(delay);
-      if (!mounted) {
-        return;
+      final delay = context.read(animationProvider) && !MediaQuery.disableAnimationsOf(context) ? widget.delay : Duration.zero;
+      if (delay == Duration.zero) {
+        _show();
+      } else {
+        _delayTimer = Timer(delay, _show);
       }
-      setState(() {
-        _opacity = 1;
-      });
+    });
+  }
+
+  void _show() {
+    if (!mounted) return;
+    setState(() {
+      _opacity = 1;
     });
   }
 
   @override
+  void dispose() {
+    _delayTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final motionAllowed = context.watch(animationProvider) && !MediaQuery.disableAnimationsOf(context);
+    if (!motionAllowed) {
+      _delayTimer?.cancel();
+      _opacity = 1;
+    }
     return AnimatedOpacity(
       opacity: _opacity,
-      duration: context.watch(animationProvider) && !MediaQuery.disableAnimationsOf(context) ? widget.duration : Duration.zero,
+      duration: motionAllowed ? widget.duration : Duration.zero,
       child: widget.child,
     );
   }

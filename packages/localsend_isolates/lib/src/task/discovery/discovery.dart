@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:localsend_isolates/constants.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/rust/api/discovery.dart';
@@ -20,12 +21,16 @@ final discoveryProvider = Provider((ref) {
 /// of confirmed devices all live on the Rust side. This service configures it
 /// from the [syncProvider] state and maps every confirmation to a [Device].
 class DiscoveryService {
-  DiscoveryService(this._ref);
+  DiscoveryService(this._ref, {Future<RsDiscovery> Function(SyncState)? start}) : _start = start ?? _startFromState;
+
+  final Future<RsDiscovery> Function(SyncState) _start;
+  int _configurationVersion = 0;
 
   final Ref _ref;
   RsDiscovery? _discovery;
   Completer<void> _retryCompleter = Completer();
   bool _listening = false;
+  StreamSubscription<dynamic>? _syncSubscription;
 
   /// Whether the current discovery was stopped by [restartListener], as
   /// opposed to stopping itself because the multicast sockets failed.
@@ -42,7 +47,13 @@ class DiscoveryService {
 
     _listening = true;
 
-    final devices = StreamController<Device>();
+    final devices = StreamController<Device>(onCancel: () async {
+      _listening = false;
+      _configurationVersion++;
+      await _syncSubscription?.cancel();
+      if (!_retryCompleter.isCompleted) _retryCompleter.complete();
+      await _discovery?.stop();
+    });
     unawaited(_runListener(devices));
     return devices.stream;
   }
@@ -50,35 +61,24 @@ class DiscoveryService {
   Future<void> _runListener(StreamController<Device> devices) async {
     // Announcements are only answered while the server runs: the answer would
     // advertise an HTTP port that nobody listens on otherwise.
-    _ref.stream(syncProvider).listen((event) {
-      if (event.prev.serverRunning != event.next.serverRunning) {
+    _syncSubscription = _ref.stream(syncProvider).listen((event) {
+      if (_configurationChanged(event.prev, event.next)) {
+        restartListener();
+      } else if (event.prev.serverRunning != event.next.serverRunning) {
         unawaited(_discovery?.setAnswerAnnouncements(answer: event.next.serverRunning));
       }
     });
 
-    while (true) {
+    while (_listening) {
       final syncState = _ref.read(syncProvider);
+      final configurationVersion = _configurationVersion;
 
       final RsDiscovery discovery;
       try {
-        discovery = await startDiscovery(
-          group: syncState.multicastGroup,
-          port: syncState.port,
-          networkWhitelist: syncState.networkWhitelist,
-          networkBlacklist: syncState.networkBlacklist,
-          alias: syncState.alias,
-          version: protocolVersion,
-          deviceModel: syncState.deviceInfo.deviceModel,
-          deviceType: syncState.deviceInfo.deviceType.toRust(),
-          fingerprint: syncState.securityContext.certificateHash,
-          protocol: syncState.protocol.toRust(),
-          download: syncState.download,
-          certPem: syncState.securityContext.certificate,
-          privateKeyPem: syncState.securityContext.privateKey,
-          timeoutMs: BigInt.from(syncState.discoveryTimeout),
-        );
+        discovery = await _start(syncState);
       } catch (e) {
         _logger.warning('Could not start discovery (group: ${syncState.multicastGroup}, port: ${syncState.port})', e);
+        if (!_listening || configurationVersion != _configurationVersion) continue;
         // Wait for the next restart request instead of hot-looping
         _retryCompleter = Completer();
         await _retryCompleter.future;
@@ -94,6 +94,12 @@ class DiscoveryService {
         await discovery.setAnswerAnnouncements(answer: false);
       }
 
+      // Settings or a restart may arrive while the native handle is starting.
+      // Never publish or announce a handle created from an obsolete snapshot.
+      if (!_listening || configurationVersion != _configurationVersion) {
+        await discovery.stop();
+        continue;
+      }
       _discovery = discovery;
 
       // Tell everyone in the network that I am online.
@@ -106,6 +112,7 @@ class DiscoveryService {
       }
 
       _discovery = null;
+      if (!_listening) break;
 
       if (_restartRequested) {
         // The stream ended because [restartListener] stopped the discovery.
@@ -123,6 +130,7 @@ class DiscoveryService {
 
   /// Restarts the discovery, e.g. after the port or the network settings changed.
   void restartListener() {
+    _configurationVersion++;
     final discovery = _discovery;
     if (discovery != null) {
       // Ends the listen stream, which makes [startListener] rebind.
@@ -223,4 +231,39 @@ class DiscoveryService {
 
     await discovery.addDevice(device: device.toRsDiscoveredDevice(ip));
   }
+}
+
+
+bool _configurationChanged(SyncState prev, SyncState next) {
+  const lists = ListEquality<String>();
+  return prev.alias != next.alias ||
+      prev.port != next.port ||
+      prev.protocol != next.protocol ||
+      prev.multicastGroup != next.multicastGroup ||
+      prev.discoveryTimeout != next.discoveryTimeout ||
+      prev.download != next.download ||
+      prev.securityContext != next.securityContext ||
+      prev.deviceInfo.deviceModel != next.deviceInfo.deviceModel ||
+      prev.deviceInfo.deviceType != next.deviceInfo.deviceType ||
+      !lists.equals(prev.networkWhitelist, next.networkWhitelist) ||
+      !lists.equals(prev.networkBlacklist, next.networkBlacklist);
+}
+
+Future<RsDiscovery> _startFromState(SyncState syncState) {
+  return startDiscovery(
+          group: syncState.multicastGroup,
+          port: syncState.port,
+          networkWhitelist: syncState.networkWhitelist,
+          networkBlacklist: syncState.networkBlacklist,
+          alias: syncState.alias,
+          version: protocolVersion,
+          deviceModel: syncState.deviceInfo.deviceModel,
+          deviceType: syncState.deviceInfo.deviceType.toRust(),
+          fingerprint: syncState.securityContext.certificateHash,
+          protocol: syncState.protocol.toRust(),
+          download: syncState.download,
+          certPem: syncState.securityContext.certificate,
+          privateKeyPem: syncState.securityContext.privateKey,
+          timeoutMs: BigInt.from(syncState.discoveryTimeout),
+        );
 }

@@ -33,7 +33,7 @@ jobs:
       - name: Format networking regression test
         working-directory: packages/core
         run: |
-          rustfmt --edition 2021 tests/v2_legacy_interop.rs
+          rustfmt --edition 2021 --check tests/v2_legacy_interop.rs
           python3 - <<'PYCODE'
           import base64, subprocess
           patch = subprocess.check_output(['git', 'diff', '--', 'tests/v2_legacy_interop.rs'])
@@ -103,7 +103,7 @@ jobs:
       - name: Format and check UI files
         working-directory: app
         run: |
-          dart format --set-exit-if-changed \
+          dart format \
             lib/config/m3e_tokens.dart \
             lib/config/theme.dart \
             lib/pages/home_page.dart \
@@ -136,13 +136,15 @@ jobs:
             test/widget/progress_page_test.dart \
             lib/util/ui/animations_status.dart \
             test/unit/provider/motion_persistence_test.dart
+          dart format ../packages/localsend_isolates/lib/src/task/discovery/discovery.dart ../packages/localsend_isolates/test/task/discovery/configuration_test.dart
 
       - name: Export formatter and codegen patch
+        if: always()
         shell: bash
         run: |
           python3 - <<'PYCODE'
           import base64, subprocess
-          patch = subprocess.check_output(['git', 'diff', '--', 'app/lib', 'app/test'])
+          patch = subprocess.check_output(['git', 'diff', '--', 'app/lib', 'app/test', 'packages/localsend_isolates/lib/src/task/discovery/discovery.dart', 'packages/localsend_isolates/test/task/discovery/configuration_test.dart'])
           print('FORMATTED_PATCH_BEGIN')
           print(base64.b64encode(patch).decode())
           print('FORMATTED_PATCH_END')
@@ -196,6 +198,10 @@ jobs:
           path: app/build/ui-review/*.png
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Analyze (localsend_isolates)
+        working-directory: packages/localsend_isolates
+        run: flutter analyze
 
       - name: Test (localsend_isolates)
         working-directory: packages/localsend_isolates

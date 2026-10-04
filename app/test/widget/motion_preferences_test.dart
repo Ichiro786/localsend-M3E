@@ -80,4 +80,23 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('removing delayed entrance effects cancels their pending timers', (tester) async {
+    await tester.pumpWidget(
+      RefenaScope(
+        child: const MaterialApp(
+          home: Column(children: [
+            InitialFadeTransition(delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Fade')),
+            InitialSlideTransition(origin: Offset(0, 1), delay: Duration(seconds: 5), duration: Duration(seconds: 1), child: Text('Slide')),
+          ]),
+        ),
+      ),
+    );
+    expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity, 0);
+    expect(tester.widget<AnimatedSlide>(find.byType(AnimatedSlide)).offset, const Offset(0, 1));
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+    // Flutter verifies there are no pending timers at the end of this test.
+  });
+
 }

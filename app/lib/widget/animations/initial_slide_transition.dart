@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:localsend_app/provider/animation_provider.dart';
-import 'package:localsend_isolates/util/sleep.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
 class InitialSlideTransition extends StatefulWidget {
@@ -28,29 +29,47 @@ class InitialSlideTransition extends StatefulWidget {
 class _InitialSlideTransitionState extends State<InitialSlideTransition> {
   late Offset _offset;
 
+  Timer? _delayTimer;
+
   @override
   void initState() {
     super.initState();
     _offset = widget.origin;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final delay = context.read(animationProvider) && !MediaQuery.disableAnimationsOf(context) ? widget.delay.inMilliseconds : 0;
-      await sleepAsync(delay);
-      if (!mounted) {
-        return;
+      final delay = context.read(animationProvider) && !MediaQuery.disableAnimationsOf(context) ? widget.delay : Duration.zero;
+      if (delay == Duration.zero) {
+        _show();
+      } else {
+        _delayTimer = Timer(delay, _show);
       }
-      setState(() {
-        _offset = widget.destination;
-      });
+    });
+  }
+
+  void _show() {
+    if (!mounted) return;
+    setState(() {
+      _offset = widget.destination;
     });
   }
 
   @override
+  void dispose() {
+    _delayTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final motionAllowed = context.watch(animationProvider) && !MediaQuery.disableAnimationsOf(context);
+    if (!motionAllowed) {
+      _delayTimer?.cancel();
+      _offset = widget.destination;
+    }
     return AnimatedSlide(
       offset: _offset,
       curve: widget.curve,
-      duration: context.watch(animationProvider) && !MediaQuery.disableAnimationsOf(context) ? widget.duration : Duration.zero,
+      duration: motionAllowed ? widget.duration : Duration.zero,
       child: widget.child,
     );
   }

@@ -20,30 +20,62 @@ async fn legacy_https_peer_can_register_and_upload_without_client_certificate() 
     let (stop_tx, stop_rx) = oneshot::channel();
     let server = start_with_loopback(
         SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
-        Some(TlsConfig { cert: cert.certificate_pem, private_key: cert.private_key_pem }),
+        Some(TlsConfig {
+            cert: cert.certificate_pem,
+            private_key: cert.private_key_pem,
+        }),
         ClientInfo {
-            alias: "M3E receiver".into(), version: "2.2".into(),
-            device_model: None, device_type: None, token: cert.fingerprint,
+            alias: "M3E receiver".into(),
+            version: "2.2".into(),
+            device_model: None,
+            device_type: None,
+            token: cert.fingerprint,
         },
         None,
-        Some(ServerConfigV2 { pin: None, verify_checksums: true, event_tx }),
+        Some(ServerConfigV2 {
+            pin: None,
+            verify_checksums: true,
+            event_tx,
+        }),
         None,
         stop_rx,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
     let peer = localsend::reqwest::Client::builder()
-        .use_rustls_tls().danger_accept_invalid_certs(true).no_proxy()
-        .timeout(Duration::from_secs(3)).build().unwrap();
+        .use_rustls_tls()
+        .danger_accept_invalid_certs(true)
+        .no_proxy()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .unwrap();
     let base = format!("https://127.0.0.1:{}/api/localsend", server.port());
     let info = serde_json::json!({
         "alias": "Legacy peer", "version": "2.1", "fingerprint": "legacy-fingerprint",
         "port": 53317, "protocol": "https", "download": false
     });
-    let response = peer.post(format!("{base}/v2/register")).json(&info).send().await.unwrap();
+    let response = peer
+        .post(format!("{base}/v2/register"))
+        .json(&info)
+        .send()
+        .await
+        .unwrap();
     assert_eq!(response.status().as_u16(), 200);
-    let event = tokio::time::timeout(Duration::from_secs(1), events.recv()).await.unwrap().unwrap();
+    let event = tokio::time::timeout(Duration::from_secs(1), events.recv())
+        .await
+        .unwrap()
+        .unwrap();
     assert!(matches!(event, ServerEventV2::Register { info, .. } if info.alias == "Legacy peer"));
     // Older manual-IP discovery probes the v1 info route, then uses v2 transfers.
-    assert_eq!(peer.get(format!("{base}/v1/info")).send().await.unwrap().status().as_u16(), 200);
+    assert_eq!(
+        peer.get(format!("{base}/v1/info"))
+            .send()
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        200
+    );
 
     let content = b"legacy LocalSend transfer";
     let request = peer.post(format!("{base}/v2/prepare-upload")).json(&serde_json::json!({
@@ -53,9 +85,17 @@ async fn legacy_https_peer_can_register_and_upload_without_client_certificate() 
     })).send();
     let receiver = async {
         match events.recv().await.unwrap() {
-            ServerEventV2::PrepareUpload { cert_fingerprint, decision_tx, .. } => {
+            ServerEventV2::PrepareUpload {
+                cert_fingerprint,
+                decision_tx,
+                ..
+            } => {
                 assert!(cert_fingerprint.is_none());
-                decision_tx.send(PrepareUploadDecisionV2::Accept(["file".into()].into_iter().collect())).unwrap();
+                decision_tx
+                    .send(PrepareUploadDecisionV2::Accept(
+                        ["file".into()].into_iter().collect(),
+                    ))
+                    .unwrap();
             }
             event => panic!("unexpected event: {event:?}"),
         }
@@ -64,18 +104,29 @@ async fn legacy_https_peer_can_register_and_upload_without_client_certificate() 
     let response = response.unwrap();
     assert_eq!(response.status().as_u16(), 200);
     let session: serde_json::Value = response.json().await.unwrap();
-    let upload = peer.post(format!(
-        "{base}/v2/upload?sessionId={}&fileId=file&token={}",
-        session["sessionId"].as_str().unwrap(), session["files"]["file"].as_str().unwrap()
-    )).body(Bytes::from_static(content)).send();
+    let upload = peer
+        .post(format!(
+            "{base}/v2/upload?sessionId={}&fileId=file&token={}",
+            session["sessionId"].as_str().unwrap(),
+            session["files"]["file"].as_str().unwrap()
+        ))
+        .body(Bytes::from_static(content))
+        .send();
     let receive = async {
         match events.recv().await.unwrap() {
             ServerEventV2::FileUpload { target_tx, .. } => {
                 let (binary_tx, mut binary_rx) = mpsc::channel(16);
                 let (result_tx, result_rx) = oneshot::channel();
-                target_tx.send(FileUploadTarget::Stream { binary_tx, result_rx }).unwrap();
+                target_tx
+                    .send(FileUploadTarget::Stream {
+                        binary_tx,
+                        result_rx,
+                    })
+                    .unwrap();
                 let mut received = Vec::new();
-                while let Some(chunk) = binary_rx.recv().await { received.extend_from_slice(&chunk); }
+                while let Some(chunk) = binary_rx.recv().await {
+                    received.extend_from_slice(&chunk);
+                }
                 assert_eq!(received, content);
                 result_tx.send(Ok(())).unwrap();
             }
