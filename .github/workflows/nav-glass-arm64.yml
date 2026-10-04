@@ -20,6 +20,24 @@ env:
   ANDROID_CMAKE: "3.22.1"
 
 jobs:
+  networking-regressions:
+    name: Rust protocol and discovery regressions
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Reproduce legacy HTTPS interoperability
+        working-directory: packages/core
+        run: cargo test --features full --test v2_legacy_interop -- --nocapture
+      - name: Test networking core
+        working-directory: packages/core
+        run: cargo test --features full
+      - name: Clippy networking core
+        working-directory: packages/core
+        run: cargo clippy --features full --all-targets
+
   validate-and-build:
     name: Flutter checks and signed ARM64 release APK
     runs-on: ubuntu-22.04
