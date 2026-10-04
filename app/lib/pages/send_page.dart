@@ -18,7 +18,6 @@ import 'package:localsend_app/widget/list_tile/device_list_tile.dart';
 import 'package:localsend_app/widget/responsive_list_view.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/session_status.dart';
-import 'package:refena_flutter/addons.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:routerino/routerino.dart';
 
@@ -241,7 +240,7 @@ class _SendPageState extends State<SendPage> with Refena {
                               child: FilledButton.icon(
                                 onPressed: () {
                                   _cancel();
-                                  context.global.dispatch(NavigateAction.popUntilRoot());
+                                  context.pop();
                                 },
                                 icon: Icon(waiting ? Icons.close : Icons.check_circle),
                                 label: Text(waiting ? t.general.cancel : t.general.close),

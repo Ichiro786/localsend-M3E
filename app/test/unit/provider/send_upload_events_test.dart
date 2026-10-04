@@ -13,7 +13,9 @@ void main() {
     final fixture = TransferFixture(send: sendSession('send'));
     addTearDown(fixture.container.disposeContainer);
     fixture.sender.closeSession('send');
-    for (final event in _events()) { fixture.sender.handleUploadEvent('send', event); }
+    for (final event in _events()) {
+      fixture.sender.handleUploadEvent('send', event);
+    }
     expect(fixture.container.read(fileTransferProvider).getData(), isEmpty);
   });
 
@@ -21,7 +23,9 @@ void main() {
     test('queued upload events do not change a $status send', () {
       final fixture = TransferFixture(send: sendSession('send', status: status));
       addTearDown(fixture.container.disposeContainer);
-      for (final event in _events()) { fixture.sender.handleUploadEvent('send', event); }
+      for (final event in _events()) {
+        fixture.sender.handleUploadEvent('send', event);
+      }
       expect(fixture.container.read(fileTransferProvider).getData(), isEmpty);
     });
   }
@@ -41,6 +45,9 @@ void main() {
   });
 }
 
-List<HttpUploadEvent> _events() => [HttpUploadFileStartedEvent(fileId: 'outgoing'),
-  HttpUploadFileProgressEvent(fileId: 'outgoing', progress: 0.5), HttpUploadFileFinishedEvent(fileId: 'outgoing'),
-  HttpUploadFileFailedEvent(fileId: 'outgoing', error: 'late error')];
+List<HttpUploadEvent> _events() => [
+  HttpUploadFileStartedEvent(fileId: 'outgoing'),
+  HttpUploadFileProgressEvent(fileId: 'outgoing', progress: 0.5),
+  HttpUploadFileFinishedEvent(fileId: 'outgoing'),
+  HttpUploadFileFailedEvent(fileId: 'outgoing', error: 'late error'),
+];

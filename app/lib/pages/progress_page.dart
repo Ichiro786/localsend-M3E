@@ -26,7 +26,6 @@ import 'package:localsend_isolates/model/file_status.dart';
 import 'package:localsend_isolates/model/session_status.dart';
 import 'package:localsend_isolates/util/file_size_helper.dart';
 import 'package:localsend_isolates/util/file_speed_helper.dart';
-import 'package:refena_flutter/addons.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:routerino/routerino.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -111,7 +110,7 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
           if (finished) {
             if (_finishCounter == 1) {
               timer.cancel();
-              _exit(closeSession: true);
+              unawaited(_exit(closeSession: true));
             } else {
               setState(() {
                 _finishCounter--;
@@ -285,7 +284,7 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
           // Because the user cannot pop this page, we can safely assume that all sessions are closed if they should be.
           return;
         }
-        _exit(closeSession: widget.closeSessionOnClose);
+        unawaited(_exit(closeSession: widget.closeSessionOnClose));
       },
       canPop: false,
       child: Scaffold(
@@ -504,7 +503,14 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
                           ),
                           const SizedBox(height: 5),
                           TweenAnimationBuilder(
-                            tween: Tween<double>(begin: 0, end: status == SessionStatus.finished ? 1 : _totalBytes == 0 ? 0 : currBytes / _totalBytes),
+                            tween: Tween<double>(
+                              begin: 0,
+                              end: status == SessionStatus.finished
+                                  ? 1
+                                  : _totalBytes == 0
+                                  ? 0
+                                  : currBytes / _totalBytes,
+                            ),
                             duration: const Duration(milliseconds: 200),
                             curve: Curves.easeOut,
                             builder: (context, value, child) {

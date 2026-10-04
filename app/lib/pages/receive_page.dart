@@ -7,7 +7,6 @@ import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/persistence/color_mode.dart';
 import 'package:localsend_app/pages/receive_options_page.dart';
 import 'package:localsend_app/pages/verify_page.dart';
-import 'package:localsend_app/pages/web_share_page.dart';
 import 'package:localsend_app/provider/favorites_provider.dart';
 import 'package:localsend_app/provider/selection/selected_receiving_files_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
@@ -21,7 +20,6 @@ import 'package:localsend_app/widget/responsive_list_view.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
 import 'package:localsend_isolates/model/session_status.dart';
-import 'package:refena_flutter/addons.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:routerino/routerino.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -234,7 +232,7 @@ class _ReceivePageState extends State<ReceivePage> with Refena {
                                                       context.showSnackBar(t.general.copiedToClipboard);
                                                     }
                                                     vm.onAccept();
-                                                    context.global.dispatch(NavigateAction.popUntil<WebSharePage>());
+                                                    context.pop();
                                                   },
                                                   icon: Icon(Icons.copy),
                                                   label: Text(t.general.copy),
@@ -249,7 +247,7 @@ class _ReceivePageState extends State<ReceivePage> with Refena {
                                                       // ignore: discarded_futures
                                                       launchUrl(Uri.parse(vm.message!), mode: LaunchMode.externalApplication);
                                                       vm.onAccept();
-                                                      context.global.dispatch(NavigateAction.popUntil<WebSharePage>());
+                                                      context.pop();
                                                     },
                                                     icon: Icon(Icons.open_in_new),
                                                     label: Text(t.general.open),
@@ -297,7 +295,7 @@ class _Actions extends StatelessWidget {
           ),
           onPressed: () {
             vm.onAccept();
-            context.global.dispatch(NavigateAction.popUntil<WebSharePage>());
+            context.pop();
           },
           icon: const Icon(Icons.close),
           label: Text(t.general.close),
@@ -320,7 +318,7 @@ class _Actions extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: () {
                 vm.onClose();
-                context.global.dispatch(NavigateAction.popUntil<WebSharePage>());
+                context.pop();
               },
               icon: const Icon(Icons.check_circle),
               label: Text(t.general.close),
@@ -343,7 +341,7 @@ class _Actions extends StatelessWidget {
               ),
               onPressed: () {
                 vm.onDecline();
-                context.global.dispatch(NavigateAction.popUntil<WebSharePage>());
+                context.pop();
               },
               icon: const Icon(Icons.close),
               label: Text(t.general.decline),

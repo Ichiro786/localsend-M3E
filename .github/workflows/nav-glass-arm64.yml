@@ -110,6 +110,9 @@ jobs:
             lib/pages/home_page.dart \
             lib/pages/home_page_controller.dart \
             lib/pages/progress_page.dart \
+            lib/pages/receive_page.dart \
+            lib/pages/send_page.dart \
+            lib/provider/receive_history_provider.dart \
             lib/provider/receive_results_provider.dart \
             lib/provider/network/send_provider.dart \
             lib/util/ui/transfer_route.dart \
@@ -217,6 +220,19 @@ jobs:
           fi
           grep -F 'Actual: SessionStatus:<SessionStatus.sending>' receive-baseline.log
           echo 'Confirmed original receive completion is blocked by history I/O.'
+          git show b10e1baba930aa6fee80d6ae695222edac2bcb52:app/lib/provider/network/server/controller/receive_controller.dart > lib/provider/network/server/controller/receive_controller.dart
+          set +e
+          flutter test test/widget/home_page_navigation_test.dart --plain-name 'Quick Save completion preserves its result and the existing Home without duplicate PageViews' --reporter expanded > quick-save-baseline.log 2>&1
+          result=$?
+          set -e
+          git restore lib/provider/network/server/controller/receive_controller.dart
+          cat quick-save-baseline.log
+          if [ "$result" -eq 0 ]; then
+            echo 'Expected original Quick Save to remove the completed receive.' >&2
+            exit 1
+          fi
+          grep -F 'Null check operator used on a null value' quick-save-baseline.log
+          echo 'Confirmed original Quick Save deletes the completed receive session.'
 
       - name: Verify transfer completion and cancellation regressions
         if: success() || failure()

@@ -9,6 +9,7 @@ import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/file_status.dart';
 import 'package:localsend_isolates/model/session_status.dart';
 import 'package:localsend_isolates/rust/api/server.dart' show SessionEndReasonV2;
+import 'package:localsend_isolates/util/rust.dart';
 import 'package:mockito/mockito.dart';
 
 import '../../fixtures/transfer_fixture.dart';
@@ -74,6 +75,31 @@ void main() {
     expect(fixture.container.read(receiveResultsProvider), contains('disk'));
   });
 
+  test('simultaneous file completions serialize history writes without delaying receive completion', () async {
+    final fixture = TransferFixture(receive: receiveSession('concurrent', count: 2));
+    addTearDown(fixture.container.disposeContainer);
+    fixture.container.notifier(fileTransferProvider).setStatuses(sessionId: 'concurrent', statuses: {
+      'file-0': FileStatus.sending, 'file-1': FileStatus.sending});
+    when(fixture.persistence.isSaveToHistory()).thenReturn(true);
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    var writes = 0;
+    when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {
+      writes++;
+      if (writes == 1) { started.complete(); await gate.future; }
+    });
+    final first = fixture.receiver.onFileUploadResult(receiveResult('concurrent'));
+    await started.future;
+    final second = fixture.receiver.onFileUploadResult(receiveResult('concurrent', fileId: 'file-1'));
+    expect(fixture.container.read(serverProvider)!.session!.status, SessionStatus.finished);
+    await Future<void>.delayed(Duration.zero);
+    expect(writes, 1);
+    gate.complete();
+    await Future.wait([first, second]);
+    expect(fixture.container.read(receiveHistoryProvider).map((e) => e.id), containsAll(['file-0', 'file-1']));
+    expect(writes, 2);
+  });
+
   test('duplicate results do not overwrite saved files or add duplicate history', () async {
     final fixture = TransferFixture(receive: receiveSession('duplicate', count: 2));
     addTearDown(fixture.container.disposeContainer);
@@ -91,7 +117,7 @@ void main() {
     addTearDown(fixture.container.disposeContainer);
     await fixture.receiver.onFileUploadResult(receiveResult('retry', error: 'network interrupted'));
     expect(fixture.container.read(serverProvider)!.session!.status, SessionStatus.finishedWithErrors);
-    fixture.receiver.onFileUpload(HttpServerFileUploadEvent(sessionId: 'retry', fileId: 'file-0', file: transferFile('file-0')));
+    fixture.receiver.onFileUpload(HttpServerFileUploadEvent(sessionId: 'retry', fileId: 'file-0', file: transferFile('file-0').toRust()));
     expect(fixture.container.read(serverProvider)!.session!.status, SessionStatus.sending);
     await fixture.receiver.onFileUploadResult(receiveResult('retry'));
     expect(fixture.container.read(receiveResultsProvider)['retry']!.status, SessionStatus.finished);

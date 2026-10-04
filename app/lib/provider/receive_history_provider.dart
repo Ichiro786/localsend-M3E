@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:localsend_app/model/persistence/receive_history_entry.dart';
 import 'package:localsend_app/provider/persistence_provider.dart';
 import 'package:localsend_isolates/model/file_type.dart';
@@ -13,6 +15,7 @@ final receiveHistoryProvider = ReduxProvider<ReceiveHistoryService, List<Receive
 
 class ReceiveHistoryService extends ReduxNotifier<List<ReceiveHistoryEntry>> {
   final PersistenceService _persistence;
+  Future<void> _pendingMutation = Future.value();
 
   ReceiveHistoryService(this._persistence);
 
@@ -20,8 +23,25 @@ class ReceiveHistoryService extends ReduxNotifier<List<ReceiveHistoryEntry>> {
   List<ReceiveHistoryEntry> init() => _persistence.getReceiveHistory();
 }
 
+/// Hold the mutation turn until Refena commits the new state, including disk I/O.
+/// Concurrent file completions must not read the same old list and lose entries.
+abstract class _HistoryMutationAction extends AsyncReduxAction<ReceiveHistoryService, List<ReceiveHistoryEntry>> {
+  late final Completer<void> _turn;
+
+  @override
+  Future<void> before() {
+    final previous = notifier._pendingMutation;
+    _turn = Completer<void>();
+    notifier._pendingMutation = _turn.future;
+    return previous;
+  }
+
+  @override
+  void after() => _turn.complete();
+}
+
 /// Adds a history entry.
-class AddHistoryEntryAction extends AsyncReduxAction<ReceiveHistoryService, List<ReceiveHistoryEntry>> {
+class AddHistoryEntryAction extends _HistoryMutationAction {
   final String entryId;
   final String fileName;
   final FileType fileType;
@@ -70,7 +90,7 @@ class AddHistoryEntryAction extends AsyncReduxAction<ReceiveHistoryService, List
 }
 
 /// Removes a history entry.
-class RemoveHistoryEntryAction extends AsyncReduxAction<ReceiveHistoryService, List<ReceiveHistoryEntry>> {
+class RemoveHistoryEntryAction extends _HistoryMutationAction {
   final String entryId;
 
   RemoveHistoryEntryAction(this.entryId);
@@ -88,7 +108,7 @@ class RemoveHistoryEntryAction extends AsyncReduxAction<ReceiveHistoryService, L
 }
 
 /// Removes all history entries.
-class RemoveAllHistoryEntriesAction extends AsyncReduxAction<ReceiveHistoryService, List<ReceiveHistoryEntry>> {
+class RemoveAllHistoryEntriesAction extends _HistoryMutationAction {
   @override
   Future<List<ReceiveHistoryEntry>> reduce() async {
     await notifier._persistence.setReceiveHistory([]);

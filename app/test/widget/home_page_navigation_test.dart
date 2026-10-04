@@ -181,68 +181,72 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('Quick Save completion preserves its result and the existing Home without duplicate PageViews', (tester) async {
-    _setViewport(tester);
-    final container = _navigationContainer(initialSettings: _fixtureSettings(quickSave: true));
-    addTearDown(container.disposeContainer);
-    await tester.pumpWidget(_navigationApp(container));
-    await _finishNavigation(tester);
-    await _tapTab(tester, HomeTab.send);
-    final homeState = tester.state(find.byType(HomePage));
-    final controller = container.read(homePageControllerProvider).controller;
-    ServerState? serverState = ServerState(
-      alias: 'Fixture',
-      port: 53317,
-      https: false,
-      webSendState: null,
-      webUpload: false,
-      webPin: null,
-      session: ReceiveSessionState(
-        sessionId: 'quick-save',
-        status: SessionStatus.sending,
-        sender: Device.empty,
-        senderAlias: 'Fixture',
-        files: {
-          'file': ReceivingFile(
-            file: FileDto(id: 'file', fileName: 'file.bin', size: 10, fileType: FileType.other, hash: null, preview: null, metadata: null),
-            token: 'token',
-            desiredName: 'file.bin',
-            path: null,
-            savedToGallery: false,
-            errorMessage: null,
-          ),
-        },
-        startTime: null,
-        endTime: null,
-        destinationDirectory: '',
-        cacheDirectory: '',
-        saveToGallery: false,
-        createdDirectories: {},
-      ),
-    );
-    final receiver = ReceiveController(
-      ServerUtils(
-        refFunc: () => container,
-        getState: () => serverState!,
-        getStateOrNull: () => serverState,
-        setState: (builder) => serverState = builder(serverState),
-      ),
-    );
-    // A null path exercises completion without an OpenFileDialog/native file launch.
-    await receiver.onFileUploadResult(
-      HttpServerFileUploadResultEvent(sessionId: 'quick-save', fileId: 'file', path: null, savedToGallery: false, error: null),
-    );
-    await _finishNavigation(tester);
-    expect(serverState!.session!.status, SessionStatus.finished);
-    expect(find.byType(HomePage, skipOffstage: false), findsOneWidget);
-    expect(tester.state(find.byType(HomePage)), same(homeState));
-    expect(controller.positions, hasLength(1));
-    _expectNavigation(tester, container, HomeTab.send);
-    await _tapTab(tester, HomeTab.settings);
-    _expectNavigation(tester, container, HomeTab.settings);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+  testWidgets(
+    'Quick Save completion preserves its result and the existing Home without duplicate PageViews',
+    (tester) async {
+      _setViewport(tester);
+      final container = _navigationContainer(initialSettings: _fixtureSettings(quickSave: true));
+      addTearDown(container.disposeContainer);
+      await tester.pumpWidget(_navigationApp(container));
+      await _finishNavigation(tester);
+      await _tapTab(tester, HomeTab.send);
+      final homeState = tester.state(find.byType(HomePage));
+      final controller = container.read(homePageControllerProvider).controller;
+      ServerState? serverState = ServerState(
+        alias: 'Fixture',
+        port: 53317,
+        https: false,
+        webSendState: null,
+        webUpload: false,
+        webPin: null,
+        session: ReceiveSessionState(
+          sessionId: 'quick-save',
+          status: SessionStatus.sending,
+          sender: Device.empty,
+          senderAlias: 'Fixture',
+          files: {
+            'file': ReceivingFile(
+              file: FileDto(id: 'file', fileName: 'file.bin', size: 10, fileType: FileType.other, hash: null, preview: null, metadata: null),
+              token: 'token',
+              desiredName: 'file.bin',
+              path: null,
+              savedToGallery: false,
+              errorMessage: null,
+            ),
+          },
+          startTime: null,
+          endTime: null,
+          destinationDirectory: '',
+          cacheDirectory: '',
+          saveToGallery: false,
+          createdDirectories: {},
+        ),
+      );
+      final receiver = ReceiveController(
+        ServerUtils(
+          refFunc: () => container,
+          getState: () => serverState!,
+          getStateOrNull: () => serverState,
+          setState: (builder) => serverState = builder(serverState),
+        ),
+      );
+      // A null path exercises completion without an OpenFileDialog/native file launch.
+      await receiver.onFileUploadResult(
+        HttpServerFileUploadResultEvent(sessionId: 'quick-save', fileId: 'file', path: null, savedToGallery: false, error: null),
+      );
+      await _finishNavigation(tester);
+      expect(serverState!.session!.status, SessionStatus.finished);
+      expect(find.byType(HomePage, skipOffstage: false), findsOneWidget);
+      expect(tester.state(find.byType(HomePage)), same(homeState));
+      expect(controller.positions, hasLength(1));
+      _expectNavigation(tester, container, HomeTab.send);
+      await _tapTab(tester, HomeTab.settings);
+      _expectNavigation(tester, container, HomeTab.settings);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
 
   testWidgets('tab requests before PageView attachment select the initial page safely', (tester) async {
     final container = RefenaContainer();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:localsend_app/gen/strings.g.dart';
 import 'package:localsend_app/model/persistence/color_mode.dart';
+import 'package:localsend_app/model/persistence/favorite_device.dart';
 import 'package:localsend_app/model/send_mode.dart';
 import 'package:localsend_app/model/state/send/send_session_state.dart';
 import 'package:localsend_app/model/state/send/sending_file.dart';
@@ -8,6 +9,8 @@ import 'package:localsend_app/model/state/server/receive_session_state.dart';
 import 'package:localsend_app/model/state/server/receiving_file.dart';
 import 'package:localsend_app/model/state/server/server_state.dart';
 import 'package:localsend_app/model/state/settings_state.dart';
+import 'package:localsend_app/provider/device_info_provider.dart';
+import 'package:localsend_app/provider/favorites_provider.dart';
 import 'package:localsend_app/provider/network/send_provider.dart';
 import 'package:localsend_app/provider/network/server/controller/receive_controller.dart';
 import 'package:localsend_app/provider/network/server/server_provider.dart';
@@ -18,6 +21,7 @@ import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/model/device_info_result.dart';
 import 'package:localsend_isolates/model/dto/file_dto.dart';
+import 'package:localsend_isolates/model/dto/multicast_dto.dart';
 import 'package:localsend_isolates/model/file_type.dart';
 import 'package:localsend_isolates/model/session_status.dart';
 import 'package:localsend_isolates/model/stored_security_context.dart';
@@ -32,25 +36,30 @@ class TransferFixture {
   final persistence = MockPersistenceService();
   late final FixtureServer server;
   late final FixtureSend sender;
+  final observer = RefenaHistoryObserver.only(actionDispatched: true);
 
-  TransferFixture({ReceiveSessionState? receive, SendSessionState? send, SettingsState? settings}) {
+  TransferFixture({ReceiveSessionState? receive, SendSessionState? send, SettingsState? settings,
+      List<FavoriteDevice> favorites = const [], int androidSdkInt = 35}) {
     final initialSettings = settings ?? transferSettings();
     when(persistence.getReceiveHistory()).thenReturn([]);
     when(persistence.isSaveToHistory()).thenReturn(false);
+    when(persistence.getFavorites()).thenReturn(favorites);
     server = FixtureServer(receive);
     sender = FixtureSend(send);
-    container = RefenaContainer(overrides: [
+    container = RefenaContainer(observers: [observer], overrides: [
+      deviceInfoProvider.overrideWithBuilder((_) => DeviceInfoResult(deviceType: DeviceType.mobile, deviceModel: null, androidSdkInt: androidSdkInt)),
+      favoritesProvider.overrideWithNotifier((_) => FavoritesService(persistence)),
       settingsProvider.overrideWithNotifier((_) => FixtureSettings(initialSettings)),
       serverProvider.overrideWithNotifier((_) => server),
       sendProvider.overrideWithNotifier((_) => sender),
       receiveHistoryProvider.overrideWithNotifier((_) => ReceiveHistoryService(persistence)),
-      parentIsolateProvider.overrideWithNotifier((_) => IsolateController(initialState: ParentIsolateState.initial(SyncState(
+      parentIsolateProvider.overrideWithReducer(notifier: (_) => IsolateController(initialState: ParentIsolateState.initial(SyncState(
         rootIsolateToken: Object(),
         securityContext: const StoredSecurityContext(privateKey: '', publicKey: '', certificate: '', certificateHash: ''),
         deviceInfo: DeviceInfoResult(deviceType: DeviceType.mobile, deviceModel: null, androidSdkInt: 35),
         alias: 'Fixture', port: 53317, protocol: ProtocolType.http, multicastGroup: '224.0.0.167',
         networkWhitelist: null, networkBlacklist: null, discoveryTimeout: 5, serverRunning: true, download: false,
-      )))),
+      ))), reducer: {IsolateHttpServerPrepareUploadDecisionAction: null, IsolateHttpServerCancelSessionAction: null}),
     ]);
     container.read(serverProvider);
     container.read(sendProvider);

@@ -5,6 +5,7 @@ import 'package:localsend_app/model/cross_file.dart';
 import 'package:localsend_app/model/send_mode.dart';
 import 'package:localsend_app/model/state/send/send_session_state.dart';
 import 'package:localsend_app/model/state/send/sending_file.dart';
+import 'package:localsend_app/pages/home_page.dart';
 import 'package:localsend_app/pages/home_page_controller.dart';
 import 'package:localsend_app/pages/progress_page.dart';
 import 'package:localsend_app/pages/send_page.dart';
@@ -29,7 +30,6 @@ import 'package:localsend_isolates/util/rust.dart';
 import 'package:localsend_isolates/util/sleep.dart';
 import 'package:localsend_isolates/util/transfer_notification.dart';
 import 'package:logging/logging.dart';
-import 'package:refena_flutter/addons.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:routerino/routerino.dart';
 import 'package:uri_content/uri_content.dart';
@@ -426,14 +426,13 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
               sessionId: sessionId,
             ),
           ),
-        )
-            .then((_) {
-              if (background) {
-                // The page was popped (e.g. backing out mid-transfer), so the session
-                // runs in background again and is removed silently on success.
-                setBackground(sessionId, true);
-              }
-            }),
+        ).then((_) {
+          if (background) {
+            // The page was popped (e.g. backing out mid-transfer), so the session
+            // runs in background again and is removed silently on success.
+            setBackground(sessionId, true);
+          }
+        }),
       );
     }
 
@@ -682,38 +681,38 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     if (session?.status != SessionStatus.sending || !session!.files.containsKey(event.fileId)) return;
     final status = ref.read(fileTransferProvider).getStatus(sessionId: sessionId, fileId: event.fileId);
     if (status != FileStatus.queue && status != FileStatus.sending) return;
-        switch (event) {
-          case HttpUploadFileStartedEvent():
-            _logger.info('Sending ${state[sessionId]?.files[event.fileId]?.file.fileName}');
-            ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: event.fileId, status: FileStatus.sending);
-          case HttpUploadFileProgressEvent():
-            ref
-                .notifier(fileTransferProvider)
-                .setProgress(
-                  sessionId: sessionId,
-                  fileId: event.fileId,
-                  progress: event.progress,
-                );
-            _updateForegroundServiceProgress(sessionId);
-          case HttpUploadFileFinishedEvent():
-            // set progress to 100% when successfully finished
-            ref
-                .notifier(fileTransferProvider)
-                .setProgress(
-                  sessionId: sessionId,
-                  fileId: event.fileId,
-                  progress: 1,
-                );
-            _updateForegroundServiceProgress(sessionId);
-            ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: event.fileId, status: FileStatus.finished);
-          case HttpUploadFileFailedEvent():
-            _logger.warning('Error while sending file ${state[sessionId]?.files[event.fileId]?.file.fileName}: ${event.error}');
-            ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: event.fileId, status: FileStatus.failed);
-            state = state.updateSession(
+    switch (event) {
+      case HttpUploadFileStartedEvent():
+        _logger.info('Sending ${state[sessionId]?.files[event.fileId]?.file.fileName}');
+        ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: event.fileId, status: FileStatus.sending);
+      case HttpUploadFileProgressEvent():
+        ref
+            .notifier(fileTransferProvider)
+            .setProgress(
               sessionId: sessionId,
-              state: (s) => s?.withFileError(event.fileId, event.error),
+              fileId: event.fileId,
+              progress: event.progress,
             );
-        }
+        _updateForegroundServiceProgress(sessionId);
+      case HttpUploadFileFinishedEvent():
+        // set progress to 100% when successfully finished
+        ref
+            .notifier(fileTransferProvider)
+            .setProgress(
+              sessionId: sessionId,
+              fileId: event.fileId,
+              progress: 1,
+            );
+        _updateForegroundServiceProgress(sessionId);
+        ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: event.fileId, status: FileStatus.finished);
+      case HttpUploadFileFailedEvent():
+        _logger.warning('Error while sending file ${state[sessionId]?.files[event.fileId]?.file.fileName}: ${event.error}');
+        ref.notifier(fileTransferProvider).setStatus(sessionId: sessionId, fileId: event.fileId, status: FileStatus.failed);
+        state = state.updateSession(
+          sessionId: sessionId,
+          state: (s) => s?.withFileError(event.fileId, event.error),
+        );
+    }
   }
 
   /// Closes the send-session and sends a cancel event to the receiver.

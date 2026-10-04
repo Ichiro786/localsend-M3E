@@ -36,7 +36,6 @@ import 'package:localsend_isolates/util/rust.dart';
 import 'package:localsend_isolates/util/transfer_notification.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:refena_flutter/addons.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:routerino/routerino.dart';
 import 'package:uuid/uuid.dart';
@@ -288,7 +287,9 @@ class ReceiveController {
   /// The receive progress of a file reported by the server isolate.
   void onFileUploadProgress(HttpServerFileUploadProgressEvent event) {
     final receiveState = server.getStateOrNull()?.session;
-    if (receiveState == null || receiveState.sessionId != event.sessionId || receiveState.status != SessionStatus.sending ||
+    if (receiveState == null ||
+        receiveState.sessionId != event.sessionId ||
+        receiveState.status != SessionStatus.sending ||
         !receiveState.files.containsKey(event.fileId) ||
         server.ref.read(fileTransferProvider).getStatus(sessionId: event.sessionId, fileId: event.fileId) != FileStatus.sending) {
       return;
@@ -420,20 +421,20 @@ class ReceiveController {
       // or let an old event mutate a replacement/cancelled session after await.
       try {
         await server.ref
-          .redux(receiveHistoryProvider)
-          .dispatchAsync(
-            AddHistoryEntryAction(
-              entryId: fileId,
-              fileName: receivingFile.desiredName!,
-              fileType: fileType,
-              path: filePath,
-              savedToGallery: event.savedToGallery,
-              isMessage: false,
-              fileSize: receivingFile.file.size,
-              senderAlias: receiveState.senderAlias,
-              timestamp: DateTime.now().toUtc(),
-            ),
-          );
+            .redux(receiveHistoryProvider)
+            .dispatchAsync(
+              AddHistoryEntryAction(
+                entryId: fileId,
+                fileName: receivingFile.desiredName!,
+                fileType: fileType,
+                path: filePath,
+                savedToGallery: event.savedToGallery,
+                isMessage: false,
+                fileSize: receivingFile.file.size,
+                senderAlias: receiveState.senderAlias,
+                timestamp: DateTime.now().toUtc(),
+              ),
+            );
       } catch (error, stack) {
         _logger.warning('Could not save receive history for ${event.sessionId}/${event.fileId}', error, stack);
       }
@@ -710,7 +711,6 @@ void _cancelBySender(ServerUtils server) {
   if (receiveSession.status != SessionStatus.waiting) {
     server.ref.notifier(receiveResultsProvider).retain(server.getState().session!);
   }
-
 }
 
 extension on ReceiveSessionState {
