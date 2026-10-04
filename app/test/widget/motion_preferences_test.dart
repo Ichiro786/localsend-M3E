@@ -109,7 +109,6 @@ void main() {
   });
 }
 
-
 Future<void> _flushProviders() async {
   // Refena delivers dependent provider changes through queued microtasks.
   for (var i = 0; i < 3; i++) {
