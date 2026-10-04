@@ -59,7 +59,7 @@ class TransferFixture {
         deviceInfo: DeviceInfoResult(deviceType: DeviceType.mobile, deviceModel: null, androidSdkInt: 35),
         alias: 'Fixture', port: 53317, protocol: ProtocolType.http, multicastGroup: '224.0.0.167',
         networkWhitelist: null, networkBlacklist: null, discoveryTimeout: 5, serverRunning: true, download: false,
-      ))), reducer: {IsolateHttpServerPrepareUploadDecisionAction: null, IsolateHttpServerCancelSessionAction: null}),
+      ))), reducer: {IsolateHttpServerPrepareUploadDecisionAction: null, IsolateHttpServerCancelSessionAction: null, IsolateHttpUploadCancelAction: null}),
     ]);
     container.read(serverProvider);
     container.read(sendProvider);

@@ -79,6 +79,16 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
     // init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (widget.receiving) {
+        final results = ref.notifier(receiveResultsProvider);
+        final route = ModalRoute.of(context)!;
+        // Release after the route's transition and disposal have completed.
+        // Updating shared providers inside dispose can rebuild another receipt
+        // while Flutter's widget tree is locked.
+        unawaited(route.completed.then((_) {
+          if (!results.disposed) results.release(widget.sessionId);
+        }));
+      }
       if (_useWakelock) {
         try {
           unawaited(WakelockPlus.enable());
@@ -197,13 +207,6 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
   @override
   void dispose() {
     _finishTimer?.cancel();
-    if (widget.receiving) {
-      final retained = ref.read(receiveResultsProvider).containsKey(widget.sessionId);
-      ref.notifier(receiveResultsProvider).remove(widget.sessionId);
-      if (retained && ref.read(serverProvider)?.session?.sessionId != widget.sessionId) {
-        ref.notifier(fileTransferProvider).removeSession(widget.sessionId);
-      }
-    }
     _wakelockPlusTimer?.cancel();
     TaskbarHelper.clearProgressBar(); // ignore: discarded_futures
     if (_useWakelock) {

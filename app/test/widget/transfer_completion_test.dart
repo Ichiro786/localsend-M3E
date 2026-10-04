@@ -35,10 +35,13 @@ void main() {
     LocaleSettings.setLocaleSync(AppLocale.en);
     TransferNotification.init(notificationStrings);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'), (_) async => Directory.systemTemp.path);
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (_) async => Directory.systemTemp.path,
+    );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('org.localsend.localsend_app/localsend'), (call) async =>
-        call.method == 'getDownloadsDirectory' ? Directory.systemTemp.path : true);
+      const MethodChannel('org.localsend.localsend_app/localsend'),
+      (call) async => call.method == 'getDownloadsDirectory' ? Directory.systemTemp.path : true,
+    );
   });
   tearDown(() {
     for (final name in ['plugins.flutter.io/path_provider', 'org.localsend.localsend_app/localsend', 'flutter.baseflow.com/permissions/methods']) {
@@ -80,11 +83,16 @@ void main() {
 
   for (final mode in ['manual', 'quick-save', 'favorites', 'browser']) {
     testWidgets('$mode acceptance reaches a persistent completion and Done returns to its parent', (tester) async {
-      final settings = transferSettings(quickSave: mode == 'quick-save', quickSaveFromFavorites: mode == 'favorites')
-        .copyWith(receiveViaLinkAutoAccept: mode == 'browser');
-      final fixture = TransferFixture(settings: settings, favorites: mode == 'favorites' ? [
-        const FavoriteDevice(id: 'favorite', fingerprint: 'sender-cert', ip: '192.168.1.2', port: 53317, alias: 'Favorite')
-      ] : []);
+      final settings = transferSettings(
+        quickSave: mode == 'quick-save',
+        quickSaveFromFavorites: mode == 'favorites',
+      ).copyWith(receiveViaLinkAutoAccept: mode == 'browser');
+      final fixture = TransferFixture(
+        settings: settings,
+        favorites: mode == 'favorites'
+            ? [const FavoriteDevice(id: 'favorite', fingerprint: 'sender-cert', ip: '192.168.1.2', port: 53317, alias: 'Favorite')]
+            : [],
+      );
       final navigator = await _app(tester, fixture);
       if (mode == 'browser') fixture.server.apply((s) => s!.copyWith(webUpload: true));
       await tester.runAsync(() => fixture.receiver.onPrepareUpload(_offer('accepted')));
@@ -98,7 +106,9 @@ void main() {
       expect(fixture.container.read(serverProvider)!.session!.status, SessionStatus.sending);
       await fixture.receiver.onFileUploadResult(receiveResult('accepted'));
       await tester.pumpAndSettle();
-      for (var i = 0; i < 5; i++) { await tester.pump(const Duration(seconds: 1)); }
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(seconds: 1));
+      }
       expect(find.byType(ProgressPage), findsOneWidget);
       expect(find.byType(ReceivePage, skipOffstage: false), findsNothing);
       await _done(tester);
@@ -113,7 +123,9 @@ void main() {
     final navigator = await _app(tester, fixture);
     final gate = Completer<String>();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('org.localsend.localsend_app/localsend'), (_) => gate.future);
+      const MethodChannel('org.localsend.localsend_app/localsend'),
+      (_) => gate.future,
+    );
     await tester.runAsync(() async {
       final pending = fixture.receiver.onPrepareUpload(_offer('aborted'));
       fixture.receiver.onPrepareUploadAborted(HttpServerPrepareUploadAbortedEvent(sessionId: 'aborted'));
@@ -133,7 +145,12 @@ void main() {
     final entered = Completer<void>();
     final gate = Completer<Map<int, int>>();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('flutter.baseflow.com/permissions/methods'), (_) { entered.complete(); return gate.future; });
+      const MethodChannel('flutter.baseflow.com/permissions/methods'),
+      (_) {
+        entered.complete();
+        return gate.future;
+      },
+    );
     await tester.runAsync(() async {
       final pending = fixture.receiver.acceptFileRequest({'file-0': 'file.bin'});
       await entered.future;
@@ -141,7 +158,9 @@ void main() {
       gate.complete({15: 1});
       await pending;
     });
-    final decisions = fixture.observer.history.whereType<ActionDispatchedEvent>().where((e) => e.action is IsolateHttpServerPrepareUploadDecisionAction);
+    final decisions = fixture.observer.history.whereType<ActionDispatchedEvent>().where(
+      (e) => e.action is IsolateHttpServerPrepareUploadDecisionAction,
+    );
     expect(decisions, isEmpty);
     expect(fixture.container.read(serverProvider)!.session!.status, SessionStatus.canceledBySender);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -365,11 +384,20 @@ Future<void> _done(WidgetTester tester) async {
 }
 
 HttpServerPrepareUploadEvent _offer(String id) => HttpServerPrepareUploadEvent(
-  sessionId: id, ip: '192.168.1.2', certFingerprint: 'sender-cert',
-  info: const RegisterDtoV2(alias: 'Fixture', version: '2.1', fingerprint: 'sender-cert', port: 53317,
-    protocol: rust_model.ProtocolType.http, download: false),
+  sessionId: id,
+  ip: '192.168.1.2',
+  certFingerprint: 'sender-cert',
+  info: const RegisterDtoV2(
+    alias: 'Fixture',
+    version: '2.1',
+    fingerprint: 'sender-cert',
+    port: 53317,
+    protocol: rust_model.ProtocolType.http,
+    download: false,
+  ),
   files: {'file-0': transferFile('file-0').toRust()},
 );
 
-Finder _button(String label, {bool elevated = false}) => find.ancestor(
-  of: find.text(label), matching: find.byWidgetPredicate((widget) => elevated ? widget is ElevatedButton : widget is TextButton)).last;
+Finder _button(String label, {bool elevated = false}) => find
+    .ancestor(of: find.text(label), matching: find.byWidgetPredicate((widget) => elevated ? widget is ElevatedButton : widget is TextButton))
+    .last;

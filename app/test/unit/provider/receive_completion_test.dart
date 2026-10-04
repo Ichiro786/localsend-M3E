@@ -100,6 +100,45 @@ void main() {
     expect(writes, 2);
   });
 
+  test('clearing history waits for an in-flight write and does not resurrect its entry', () async {
+    final fixture = TransferFixture(receive: receiveSession('clear'));
+    addTearDown(fixture.container.disposeContainer);
+    when(fixture.persistence.isSaveToHistory()).thenReturn(true);
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    var writes = 0;
+    when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {
+      writes++;
+      if (writes == 1) { started.complete(); await gate.future; }
+    });
+    final result = fixture.receiver.onFileUploadResult(receiveResult('clear'));
+    await started.future;
+    final clear = fixture.container.redux(receiveHistoryProvider).dispatchAsync(RemoveAllHistoryEntriesAction());
+    gate.complete();
+    await Future.wait([result, clear]);
+    expect(fixture.container.read(receiveHistoryProvider), isEmpty);
+    verify(fixture.persistence.setReceiveHistory([])).called(1);
+  });
+
+  test('a failed history write releases the next queued completion', () async {
+    final fixture = TransferFixture(receive: receiveSession('queued', count: 2));
+    addTearDown(fixture.container.disposeContainer);
+    fixture.container.notifier(fileTransferProvider).setStatuses(sessionId: 'queued', statuses: {
+      'file-0': FileStatus.sending, 'file-1': FileStatus.sending});
+    when(fixture.persistence.isSaveToHistory()).thenReturn(true);
+    var writes = 0;
+    when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {
+      if (++writes == 1) throw StateError('one failed write');
+    });
+    await Future.wait([
+      fixture.receiver.onFileUploadResult(receiveResult('queued')),
+      fixture.receiver.onFileUploadResult(receiveResult('queued', fileId: 'file-1')),
+    ]);
+    expect(writes, 2);
+    expect(fixture.container.read(receiveHistoryProvider).single.id, 'file-1');
+    expect(fixture.container.read(serverProvider)!.session!.status, SessionStatus.finished);
+  });
+
   test('duplicate results do not overwrite saved files or add duplicate history', () async {
     final fixture = TransferFixture(receive: receiveSession('duplicate', count: 2));
     addTearDown(fixture.container.disposeContainer);

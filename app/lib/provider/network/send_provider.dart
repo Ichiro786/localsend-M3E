@@ -723,8 +723,6 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
     }
     final remoteSessionId = sessionState.remoteSessionId;
 
-    _cancelRunningRequests(sessionState);
-
     if (remoteSessionId == null) {
       closeSession(sessionId);
       return;
@@ -790,8 +788,7 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
       return;
     }
     TransferNotification.stop(sessionId);
-    _hashCancelTokens.remove(sessionId)?.cancel();
-    _prepareUploadCancelTokens.remove(sessionId)?.cancel();
+    _cancelRunningRequests(sessionState);
     state = state.removeSession(ref, sessionId);
     if (sessionState.status == SessionStatus.finished && ref.read(settingsProvider).sendMode == SendMode.single) {
       // clear selected files
@@ -800,19 +797,18 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
   }
 
   void clearAllSessions() {
-    for (final sessionId in state.keys) {
-      TransferNotification.stop(sessionId);
+    final sessionIds = state.keys.toList();
+    for (final session in state.values) {
+      TransferNotification.stop(session.sessionId);
+      _cancelRunningRequests(session);
     }
-    for (final cancelToken in _hashCancelTokens.values) {
-      cancelToken.cancel();
-    }
-    _hashCancelTokens.clear();
-    for (final cancelToken in _prepareUploadCancelTokens.values) {
-      cancelToken.cancel();
-    }
-    _prepareUploadCancelTokens.clear();
     state = {};
-    ref.notifier(fileTransferProvider).removeAllSessions();
+    // Receiving shares this provider. Clearing sends must not erase a live
+    // receive or its retained confirmation, and must stop upload tasks too.
+    final transferNotifier = ref.notifier(fileTransferProvider);
+    for (final sessionId in sessionIds) {
+      transferNotifier.removeSession(sessionId);
+    }
   }
 
   void setBackground(String sessionId, bool background) {

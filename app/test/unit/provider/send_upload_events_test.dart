@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:localsend_app/model/state/send/send_session_state.dart';
 import 'package:localsend_app/provider/file_transfer_provider.dart';
 import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/file_status.dart';
 import 'package:localsend_isolates/model/session_status.dart';
+import 'package:refena_flutter/refena_flutter.dart';
 
 import '../../fixtures/transfer_fixture.dart';
 
@@ -29,6 +31,20 @@ void main() {
       expect(fixture.container.read(fileTransferProvider).getData(), isEmpty);
     });
   }
+
+  test('clearing sends stops upload tasks and preserves simultaneous receive file state', () {
+    final fixture = TransferFixture(send: sendSession('send').copyWith(sendingTasks: [SendingTask(taskId: 7)]));
+    addTearDown(fixture.container.disposeContainer);
+    final transfer = fixture.container.notifier(fileTransferProvider);
+    transfer.setStatuses(sessionId: 'receive', statuses: {'incoming': FileStatus.finished});
+    transfer.setStatuses(sessionId: 'send', statuses: {'outgoing': FileStatus.sending});
+    fixture.sender.clearAllSessions();
+    expect(transfer.getData().keys, ['receive']);
+    expect(transfer.getStatus(sessionId: 'receive', fileId: 'incoming'), FileStatus.finished);
+    final cancellations = fixture.observer.history.whereType<ActionDispatchedEvent>()
+      .map((e) => e.action).whereType<IsolateHttpUploadCancelAction>();
+    expect(cancellations.single.taskId, 7);
+  });
 
   test('normal upload events finish a file, ignoring duplicate failure and unknown files', () {
     final fixture = TransferFixture(send: sendSession('send'));

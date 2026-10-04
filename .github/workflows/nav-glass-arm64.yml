@@ -70,8 +70,39 @@ jobs:
         working-directory: packages/core
         run: cargo clippy --features full --all-targets
 
+  format-transfer-changes:
+    name: Check transfer formatting
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Format transfer changes
+        working-directory: app
+        run: |
+          dart format --set-exit-if-changed lib/pages/progress_page.dart lib/pages/receive_page.dart lib/pages/send_page.dart \
+            lib/provider/receive_results_provider.dart lib/provider/receive_history_provider.dart lib/provider/network/send_provider.dart \
+            lib/provider/network/server/controller/receive_controller.dart lib/util/native/taskbar_helper.dart lib/util/ui/transfer_route.dart \
+            test/fixtures/transfer_fixture.dart test/unit/provider/receive_completion_test.dart test/unit/provider/send_upload_events_test.dart \
+            test/widget/transfer_completion_test.dart test/widget/home_page_navigation_test.dart
+      - name: Export formatter patch
+        if: always()
+        run: |
+          python3 - <<'PYCODE'
+          import base64, subprocess
+          patch = subprocess.check_output(['git', 'diff', '--', 'app/lib', 'app/test'])
+          print('FORMATTED_PATCH_BEGIN')
+          print(base64.b64encode(patch).decode())
+          print('FORMATTED_PATCH_END')
+          PYCODE
+
   validate-and-build:
     name: Flutter checks and signed ARM64 release APK
+    needs: format-transfer-changes
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
@@ -104,7 +135,7 @@ jobs:
       - name: Format and check UI files
         working-directory: app
         run: |
-          dart format \
+          dart format --set-exit-if-changed \
             lib/config/m3e_tokens.dart \
             lib/config/theme.dart \
             lib/pages/home_page.dart \
@@ -113,6 +144,7 @@ jobs:
             lib/pages/receive_page.dart \
             lib/pages/send_page.dart \
             lib/provider/receive_history_provider.dart \
+            lib/util/native/taskbar_helper.dart \
             lib/provider/receive_results_provider.dart \
             lib/provider/network/send_provider.dart \
             lib/util/ui/transfer_route.dart \
