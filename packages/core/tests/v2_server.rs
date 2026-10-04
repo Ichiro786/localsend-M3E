@@ -34,6 +34,9 @@ struct TestServer {
 
 impl TestServer {
     async fn wait_for_first_bytes(&self, file_id: &str) {
+        // This stage deliberately obtains the notification receiver; the next
+        // stage awaits it under its own timeout.
+        #[expect(clippy::async_yields_async, reason = "separate registration and first-byte timeouts")]
         let first_bytes = tokio::time::timeout(Duration::from_secs(2), async {
             loop {
                 if let Some(receiver) = self.first_bytes.lock().await.remove(file_id) {
