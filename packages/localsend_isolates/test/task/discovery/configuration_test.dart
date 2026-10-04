@@ -13,7 +13,7 @@ import 'package:refena_flutter/refena_flutter.dart';
 void main() {
   test('connection settings restart discovery while server status preserves the handle', () async {
     final initial = _fixture();
-    final container = RefenaContainer(overrides: [syncProvider.overrideWith((_) => SyncService(initial: initial))]);
+    final container = RefenaContainer(overrides: [syncProvider.overrideWithNotifier((_) => SyncService(initial: initial))]);
     addTearDown(container.disposeContainer);
     final starts = <SyncState>[];
     final handles = <_Discovery>[];
@@ -66,7 +66,7 @@ void main() {
 
   test('settings changed during native startup discard stale handle before announcing', () async {
     final initial = _fixture();
-    final container = RefenaContainer(overrides: [syncProvider.overrideWith((_) => SyncService(initial: initial))]);
+    final container = RefenaContainer(overrides: [syncProvider.overrideWithNotifier((_) => SyncService(initial: initial))]);
     addTearDown(container.disposeContainer);
     final pending = Completer<RsDiscovery>();
     final stale = _Discovery();

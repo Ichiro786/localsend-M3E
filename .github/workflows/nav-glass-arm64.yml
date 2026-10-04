@@ -178,6 +178,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Analyze (localsend_isolates)
+        working-directory: packages/localsend_isolates
+        run: flutter analyze
+
+      - name: Test (localsend_isolates)
+        working-directory: packages/localsend_isolates
+        run: flutter test
+
       - name: Reproduce and verify Home navigation
         if: success() || failure()
         working-directory: app
@@ -199,14 +207,6 @@ jobs:
           path: app/build/ui-review/*.png
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Analyze (localsend_isolates)
-        working-directory: packages/localsend_isolates
-        run: flutter analyze
-
-      - name: Test (localsend_isolates)
-        working-directory: packages/localsend_isolates
-        run: flutter test
 
       - uses: actions/setup-java@v5
         with:
