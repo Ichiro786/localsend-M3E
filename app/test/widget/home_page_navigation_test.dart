@@ -262,6 +262,48 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('Android back returns root tabs Home before allowing system exit', (tester) async {
+    _setViewport(tester);
+    final container = _navigationContainer();
+    addTearDown(container.disposeContainer);
+    await tester.pumpWidget(_navigationApp(container));
+    await _finishNavigation(tester);
+    for (final tab in [HomeTab.send, HomeTab.settings]) {
+      await _tapTab(tester, tab);
+      final scope = tester.widget<PopScope<Object?>>(find.byKey(const ValueKey('home-root-back-scope')));
+      expect(scope.canPop, isFalse);
+      await tester.binding.handlePopRoute();
+      await _finishNavigation(tester);
+      _expectNavigation(tester, container, HomeTab.receive);
+      expect(tester.widget<PopScope<Object?>>(find.byKey(const ValueKey('home-root-back-scope'))).canPop, isTrue);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('Android back pops a nested route before returning its root tab Home', (tester) async {
+    _setViewport(tester);
+    final container = _navigationContainer();
+    addTearDown(container.disposeContainer);
+    await tester.pumpWidget(_navigationApp(container));
+    await _finishNavigation(tester);
+    await _tapTab(tester, HomeTab.settings);
+    unawaited(container.read(navigationProvider).key.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Nested settings'))),
+    ));
+    await _finishNavigation(tester);
+    expect(find.text('Nested settings'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await _finishNavigation(tester);
+    expect(find.text('Nested settings'), findsNothing);
+    _expectNavigation(tester, container, HomeTab.settings);
+    await tester.binding.handlePopRoute();
+    await _finishNavigation(tester);
+    _expectNavigation(tester, container, HomeTab.receive);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
   test('Home PageController is disposed with its owning provider', () {
     final container = RefenaContainer();
     final controller = container.read(homePageControllerProvider).controller;

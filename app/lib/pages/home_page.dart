@@ -76,7 +76,15 @@ class _HomePageState extends State<HomePage> with Refena {
     // A metrics-only rebuild of that child must not replace our tab subscription.
     final animationsEnabled = context.watch(animationProvider);
 
-    return DropTarget(
+    return PopScope<Object?>(
+      key: const ValueKey('home-root-back-scope'),
+      canPop: vm.currentTab == HomeTab.receive,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          vm.changeTab(HomeTab.receive);
+        }
+      },
+      child: DropTarget(
       onDragEntered: (_) {
         setState(() {
           _dragAndDropIndicator = true;
@@ -200,6 +208,7 @@ class _HomePageState extends State<HomePage> with Refena {
             ),
           );
         },
+      ),
       ),
     );
   }
