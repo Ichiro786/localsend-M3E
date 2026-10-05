@@ -190,9 +190,12 @@ class ReceiveController {
                 timestamp: DateTime.now().toUtc(),
               ),
             )
-            .then<void>((_) {}, onError: (Object error, StackTrace stack) {
-              _logger.warning('Could not save receive message history for $sessionId', error, stack);
-            }),
+            .then<void>(
+              (_) {},
+              onError: (Object error, StackTrace stack) {
+                _logger.warning('Could not save receive message history for $sessionId', error, stack);
+              },
+            ),
       );
     }
 

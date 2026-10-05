@@ -121,32 +121,36 @@ void main() {
   }
 
   for (final history in ['blocked', 'failed']) {
-    testWidgets('message with $history history remains usable and preserves an older receive confirmation', (tester) async {
-      final fixture = TransferFixture(receive: receiveSession('first'));
-      final navigator = await _app(tester, fixture);
-      unawaited(navigator.push(_progress('first', receiving: true)));
-      await tester.pumpAndSettle();
-      await fixture.receiver.onFileUploadResult(receiveResult('first'));
-      final gate = Completer<void>();
-      when(fixture.persistence.isSaveToHistory()).thenReturn(true);
-      when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {
-        if (history == 'failed') throw StateError('message history unavailable');
-        await gate.future;
-      });
-      await tester.runAsync(() => fixture.receiver.onPrepareUpload(_offer('message', message: 'Hello')));
-      await tester.pumpAndSettle();
-      expect(find.byType(ReceivePage), findsOneWidget);
-      expect(fixture.container.read(serverProvider)!.session!.message, 'Hello');
-      await tester.tap(_button(t.general.close));
-      await tester.pumpAndSettle();
-      expect(find.text('first-file-0.bin'), findsOneWidget);
-      expect(fixture.container.read(serverProvider)!.session, isNull);
-      if (!gate.isCompleted) gate.complete();
-      await tester.pumpAndSettle();
-      await _done(tester);
-      expect(find.text('Parent route'), findsOneWidget);
-      await tester.pumpWidget(const SizedBox.shrink());
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+    testWidgets(
+      'message with $history history remains usable and preserves an older receive confirmation',
+      (tester) async {
+        final fixture = TransferFixture(receive: receiveSession('first'));
+        final navigator = await _app(tester, fixture);
+        unawaited(navigator.push(_progress('first', receiving: true)));
+        await tester.pumpAndSettle();
+        await fixture.receiver.onFileUploadResult(receiveResult('first'));
+        final gate = Completer<void>();
+        when(fixture.persistence.isSaveToHistory()).thenReturn(true);
+        when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {
+          if (history == 'failed') throw StateError('message history unavailable');
+          await gate.future;
+        });
+        await tester.runAsync(() => fixture.receiver.onPrepareUpload(_offer('message', message: 'Hello')));
+        await tester.pumpAndSettle();
+        expect(find.byType(ReceivePage), findsOneWidget);
+        expect(fixture.container.read(serverProvider)!.session!.message, 'Hello');
+        await tester.tap(_button(t.general.close));
+        await tester.pumpAndSettle();
+        expect(find.text('first-file-0.bin'), findsOneWidget);
+        expect(fixture.container.read(serverProvider)!.session, isNull);
+        if (!gate.isCompleted) gate.complete();
+        await tester.pumpAndSettle();
+        await _done(tester);
+        expect(find.text('Parent route'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.android),
+    );
   }
 
   testWidgets('a request aborted during directory lookup cannot reopen an acceptance page', (tester) async {
