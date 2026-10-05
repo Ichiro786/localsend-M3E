@@ -2,18 +2,18 @@
 
 LocalSend M3E uses the unique Android application ID `com.localsend.m3e`. The visible application label remains **LocalSend**. Because the application ID differs from the official LocalSend application ID (`org.localsend.localsend_app`), Android treats M3E as a separate installable application and the two packages can coexist on the same device.
 
-## Final v1.0.0 identity
+## Current v1.0.1 identity
 
-The first public M3E release uses version name **1.0.0** and Android versionCode **64**. The previous M3E build used versionCode 63, so 64 preserves normal update ordering. Gradle namespace, manifest package metadata, and app-owned Kotlin packages are aligned to `com.localsend.m3e`; Dart package/import names and the existing Flutter method-channel identifier remain unchanged.
+M3E v1.0.1 uses version name **1.0.1** and Android versionCode **65** (652 for ARMv7, 653 for ARM64). The previous public v1.0.0 release used versionCode 64, so 65 preserves normal update ordering. Gradle namespace, manifest package metadata, and app-owned Kotlin packages are aligned to `com.localsend.m3e`; Dart package/import names and the existing Flutter method-channel identifier remain unchanged.
 
 The public Android release contains only these split APKs:
 
 | Architecture | Artifact |
 | --- | --- |
-| ARM64 | `LocalSend-1.0.0-arm64-v8a.apk` |
-| ARMv7 | `LocalSend-1.0.0-armeabi-v7a.apk` |
+| ARM64 | `LocalSend-1.0.1-arm64-v8a.apk` |
+| ARMv7 | `LocalSend-1.0.1-armeabi-v7a.apk` |
 
-The Android production workflow is manually dispatched from the verified `main` branch. It validates `1.0.0+64`, builds and verifies both Android APKs, creates tag `v1.0.0` only after verification succeeds, and then publishes the matching GitHub Release.
+The Android production workflow runs for approved release commits on `sesori/ui-feedback-round-apply` with the message prefix `release: v1.0.1`, or via manual dispatch. It waits for passing CI on the exact commit, validates `1.0.1+65`, builds both optimized Android APKs, creates tag `v1.0.1` only after verification succeeds, and publishes the matching GitHub Release. Public downloads are checked against the build checksums.
 
 ## Production signing inputs
 
@@ -44,7 +44,7 @@ base64 -w 0 /secure/path/localsend-m3e-release.jks
 
 ## Workflow behavior
 
-`.github/workflows/android-release.yml` is the **canonical Phase 5 production release workflow**. It is manually dispatched from `main`, requires both encrypted signing secrets before any Android build, decodes them only inside the CI runner, builds only ARM64 and ARMv7 release APKs, verifies their certificates and installability-related package structure, creates tag `v1.0.0` only after all checks pass, uploads exactly the two expected APK assets, and publishes the matching GitHub Release last.
+`.github/workflows/android-release.yml` is the **canonical Phase 5 production release workflow**. It builds the exact approved commit after its CI passes, requires both encrypted signing secrets before any Android build, decodes them only inside the CI runner, builds only ARM64 and ARMv7 release APKs, verifies their certificates and installability-related package structure, creates tag `v1.0.1` only after all checks pass, uploads exactly the two expected APK assets, and publishes the matching GitHub Release last.
 
 `.github/workflows/phase4-release-apk.yml` is a legacy/manual validation workflow and is not the final release mechanism. It is also fail-closed and cannot create an unsigned APK when signing credentials are missing. It must not be used instead of the canonical production workflow.
 
@@ -69,4 +69,4 @@ Never commit a private keystore, signing certificate with private material, pass
 
 ## Maintainer release checklist
 
-Before publishing a signed release, confirm that the two Actions secrets are configured, the canonical `.github/workflows/android-release.yml` completes successfully from `main`, `apksigner` verifies both APKs against the permanent certificate, the generated APKs report `com.localsend.m3e`, `LocalSend`, version `1.0.0`, and ABI version codes `642` and `643`, and the ARM64 release artifact is measured against another ARM64 **release** artifact rather than a debug build. Real-device installation, update, coexistence, and transfer testing remain required before public distribution.
+Before publishing a signed release, confirm that the two Actions secrets are configured, the canonical `.github/workflows/android-release.yml` completes successfully on the approved release commit, `apksigner` verifies both APKs against the permanent certificate, the generated APKs report `com.localsend.m3e`, `LocalSend`, version `1.0.1`, and ABI version codes `652` and `653`, and the ARM64 release artifact is measured against another ARM64 **release** artifact rather than a debug build. Real-device installation, update, coexistence, and transfer testing remain required before public distribution.
