@@ -1,0 +1,369 @@
+import 'dart:ui' as ui;
+import 'dart:ui' show SemanticsAction, Tristate;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:localsend_app/config/m3e_tokens.dart';
+import 'package:localsend_app/widget/m3e/m3e_components.dart';
+import 'package:localsend_app/widget/responsive_list_view.dart';
+
+void main() {
+  testWidgets('expressive switch exposes state and toggles through its 48 dp hit region', (tester) async {
+    var value = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            return Scaffold(
+              body: Center(
+                child: M3eExpressiveSwitch(
+                  value: value,
+                  semanticLabel: 'Animations, Off',
+                  onChanged: (next) => setState(() => value = next),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(tester.getSize(find.byType(M3eExpressiveSwitch)).height, greaterThanOrEqualTo(48));
+    final hitBounds = tester.getRect(find.byType(InkWell));
+    final trackBounds = tester.getRect(find.byType(AnimatedContainer).first);
+    expect(hitBounds.size, const Size(52, 48));
+    expect(trackBounds.size, const Size(52, 32));
+    expect(trackBounds.top, greaterThan(hitBounds.top + 2));
+    expect(
+      tester.getSemantics(find.byType(M3eExpressiveSwitch)),
+      matchesSemantics(
+        label: 'Animations, Off',
+        isEnabled: true,
+        hasEnabledState: true,
+        isToggled: false,
+        hasToggledState: true,
+        hasTapAction: true,
+      ),
+    );
+
+    await tester.tapAt(Offset(hitBounds.center.dx, hitBounds.top + 2));
+    await tester.pump(M3eTokens.shortMotion);
+
+    expect(value, isTrue);
+    expect(find.byIcon(Icons.check), findsOneWidget);
+  });
+
+  testWidgets('section headings use the theme title scale with a moderate weight', (tester) async {
+    final theme = ThemeData(useMaterial3: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: M3eSectionCard(title: 'Settings section', children: const [SizedBox(height: 1)]),
+        ),
+      ),
+    );
+
+    final heading = tester.widget<Text>(find.text('Settings section'));
+    final resolvedTheme = Theme.of(tester.element(find.byType(M3eSectionCard)));
+    expect(heading.style?.fontSize, resolvedTheme.textTheme.titleLarge?.fontSize);
+    expect(heading.style?.fontWeight, FontWeight.w600);
+    expect(heading.style?.color, resolvedTheme.colorScheme.onSurface);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('floating navigation lets content scroll behind the glass and clear the bar in both themes', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const pageBackground = Color(0xFF00A896);
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true, brightness: brightness),
+          builder: (context, child) {
+            final mediaQuery = MediaQuery.of(context);
+            return MediaQuery(
+              data: mediaQuery.copyWith(
+                padding: const EdgeInsets.only(bottom: 24),
+                viewPadding: const EdgeInsets.only(bottom: 24),
+              ),
+              child: child!,
+            );
+          },
+          home: Scaffold(
+            extendBody: true,
+            backgroundColor: Colors.transparent,
+            body: SafeArea(
+              bottom: false,
+              child: PageView(
+                key: ValueKey(brightness),
+                children: const [
+                  ResponsiveListView(
+                    padding: EdgeInsets.fromLTRB(16, 28, 16, 36),
+                    children: [
+                      SizedBox(
+                        height: 1400,
+                        child: ColoredBox(key: ValueKey('page-body-background'), color: pageBackground),
+                      ),
+                      SizedBox(key: ValueKey('last-page-item'), height: 64, child: Text('Last item')),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            bottomNavigationBar: M3eFloatingNavigationBar(
+              selectedIndex: 0,
+              destinations: [
+                M3eNavigationDestination(icon: Icons.home_outlined, label: 'Home', onTap: () {}),
+                M3eNavigationDestination(icon: Icons.send, label: 'Send', onTap: () {}),
+                M3eNavigationDestination(icon: Icons.settings, label: 'Settings', onTap: () {}),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final scaffoldRect = tester.getRect(find.byType(Scaffold));
+      final navigationRect = tester.getRect(find.byType(M3eFloatingNavigationBar));
+      expect(tester.getRect(find.byType(PageView)).bottom, scaffoldRect.bottom);
+      expect(tester.getRect(find.byType(SingleChildScrollView)).bottom, scaffoldRect.bottom);
+      expect(tester.getRect(find.byKey(const ValueKey('page-body-background'))).contains(navigationRect.center), isTrue);
+
+      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      final lastItemRect = tester.getRect(find.byKey(const ValueKey('last-page-item')));
+      expect(lastItemRect.top, greaterThanOrEqualTo(0));
+      expect(lastItemRect.bottom, lessThanOrEqualTo(navigationRect.top));
+      expect(tester.takeException(), isNull);
+      final safeArea = tester.widget<SafeArea>(
+        find.descendant(of: find.byType(M3eFloatingNavigationBar), matching: find.byType(SafeArea)),
+      );
+      expect(safeArea.top, isFalse);
+      expect(safeArea.bottom, isTrue);
+      expect(safeArea.minimum, const EdgeInsets.fromLTRB(16, 8, 16, 10));
+    }
+  });
+
+  testWidgets('floating navigation scopes blur, retains selected semantics and touch targets', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final semantics = tester.ensureSemantics();
+    final tapped = <String>[];
+
+    try {
+      await tester.pumpWidget(
+        _navigationHost(
+          scheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.light),
+          animationsEnabled: true,
+          tapped: tapped,
+          selectedIndex: 1,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(M3eFloatingNavigationBar), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(
+        tester.widget<BackdropFilter>(find.byType(BackdropFilter)).filter,
+        ui.ImageFilter.blur(sigmaX: M3eTokens.frostedBlurSigma, sigmaY: M3eTokens.frostedBlurSigma),
+      );
+      for (final label in ['Receive', 'Send', 'Settings']) {
+        expect(find.text(label), findsOneWidget);
+        final target = find.ancestor(of: find.text(label), matching: find.byType(InkWell));
+        expect(target, findsOneWidget);
+        expect(tester.getSize(target).height, greaterThanOrEqualTo(48));
+        expect(tester.getSize(target).width, greaterThanOrEqualTo(48));
+      }
+
+      final surfaceRect = tester.getRect(find.byKey(const ValueKey('m3e-floating-navigation-surface')));
+      final clipRect = tester.getRect(find.byKey(const ValueKey('m3e-floating-navigation-clip')));
+      final filterRect = tester.getRect(find.byType(BackdropFilter));
+      expect(filterRect, surfaceRect);
+      expect(clipRect, surfaceRect);
+      expect(filterRect.width, lessThan(390));
+      expect(filterRect.height, lessThan(844 / 2));
+
+      final selectedRect = tester.getRect(find.byKey(const ValueKey('m3e-navigation-selected-pill')));
+      expect(selectedRect.top - surfaceRect.top, greaterThanOrEqualTo(M3eTokens.navigationInset));
+      expect(surfaceRect.bottom - selectedRect.bottom, greaterThanOrEqualTo(M3eTokens.navigationInset));
+
+      final selectedData = tester.getSemantics(find.text('Send')).getSemanticsData();
+      expect(selectedData.label, 'Send');
+      expect(selectedData.flagsCollection.isButton, isTrue);
+      expect(selectedData.flagsCollection.isSelected, Tristate.isTrue);
+      expect(selectedData.hasAction(SemanticsAction.tap), isTrue);
+
+      await tester.tap(find.text('Settings'));
+      expect(tapped, ['Settings']);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('navigation highlight follows the reference pill curvature at large text sizes and in RTL', (tester) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final scale in [1.0, 1.8, 2.4]) {
+      for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+        for (var selected = 0; selected < 3; selected++) {
+          await tester.pumpWidget(
+            _navigationHost(
+              scheme: ColorScheme.fromSeed(seedColor: Colors.orange, brightness: Brightness.dark),
+              animationsEnabled: false,
+              tapped: [],
+              selectedIndex: selected,
+              textScale: scale,
+              direction: direction,
+            ),
+          );
+          await tester.pumpAndSettle();
+          final surfaceFinder = find.byKey(const ValueKey('m3e-floating-navigation-surface'));
+          final pillFinder = find.byKey(const ValueKey('m3e-navigation-selected-pill'));
+          final surface = tester.getRect(surfaceFinder);
+          final pill = tester.getRect(pillFinder);
+          final surfaceDecoration = tester.widget<DecoratedBox>(surfaceFinder).decoration as BoxDecoration;
+          final pillDecoration = tester.widget<AnimatedContainer>(pillFinder).decoration as BoxDecoration;
+          final outerCurve = (surfaceDecoration.borderRadius! as BorderRadius).toRRect(surface).scaleRadii();
+          final innerCurve = (pillDecoration.borderRadius! as BorderRadius).toRRect(pill).scaleRadii();
+          expect(outerCurve.tlRadiusY, lessThanOrEqualTo(surface.height / 2));
+          expect(innerCurve.tlRadiusY, lessThanOrEqualTo(pill.height / 2));
+          expect(pill.top - surface.top, closeTo(M3eTokens.navigationInset, 0.01));
+          expect(surface.bottom - pill.bottom, closeTo(M3eTokens.navigationInset, 0.01));
+          expect(outerCurve.tlRadiusY - innerCurve.tlRadiusY, closeTo(M3eTokens.navigationInset, 0.01));
+          for (final label in ['Receive', 'Send', 'Settings']) {
+            final icon = find.descendant(
+              of: find.ancestor(of: find.text(label), matching: find.byType(AnimatedContainer)),
+              matching: find.byType(Icon),
+            );
+            expect(tester.getRect(icon).bottom, lessThanOrEqualTo(tester.getRect(find.text(label)).top));
+          }
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
+  });
+
+  testWidgets('switch motion obeys saved and system reduced-motion preferences', (tester) async {
+    for (final animations in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MediaQuery(
+              data: MediaQueryData(disableAnimations: animations),
+              child: M3eExpressiveSwitch(value: true, onChanged: (_) {}, semanticLabel: 'Animations', animationsEnabled: animations),
+            ),
+          ),
+        ),
+      );
+      for (final element in find.byType(AnimatedContainer).evaluate()) {
+        expect((element.widget as AnimatedContainer).duration, Duration.zero);
+      }
+      expect(tester.widget<AnimatedAlign>(find.byType(AnimatedAlign)).duration, Duration.zero);
+    }
+  });
+
+  testWidgets('floating navigation uses theme tones and disables blur and transitions for reduced motion', (tester) async {
+    final darkScheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark);
+    final dynamicScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple, brightness: Brightness.light);
+    final schemes = [
+      ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.light),
+      darkScheme,
+      dynamicScheme,
+      darkScheme.copyWith(surface: Colors.black),
+    ];
+
+    for (final scheme in schemes) {
+      await tester.pumpWidget(_navigationHost(scheme: scheme, animationsEnabled: true, tapped: []));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      final blurredSurface = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('m3e-floating-navigation-surface')),
+      );
+      expect(
+        (blurredSurface.decoration as BoxDecoration).color,
+        M3eTokens.elevatedSurface(scheme, opacity: scheme.brightness == Brightness.dark ? 0.4 : 0.55),
+      );
+      final selectedPill = tester.widget<AnimatedContainer>(
+        find.byKey(const ValueKey('m3e-navigation-selected-pill')),
+      );
+      expect((selectedPill.decoration as BoxDecoration).color, scheme.primaryContainer);
+      expect(tester.widget<Text>(find.text('Send')).style?.color, scheme.onPrimaryContainer);
+      expect(tester.widget<Text>(find.text('Receive')).style?.color, scheme.onSurfaceVariant);
+
+      await tester.pumpWidget(_navigationHost(scheme: scheme, animationsEnabled: false, tapped: []));
+      expect(find.byType(BackdropFilter), findsNothing);
+      final fallbackSurface = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('m3e-floating-navigation-surface')),
+      );
+      expect(
+        (fallbackSurface.decoration as BoxDecoration).color,
+        M3eTokens.elevatedSurface(scheme, opacity: 0.9),
+      );
+      expect(
+        tester.widget<AnimatedContainer>(find.byKey(const ValueKey('m3e-navigation-selected-pill'))).duration,
+        Duration.zero,
+      );
+
+      await tester.pumpWidget(
+        _navigationHost(scheme: scheme, animationsEnabled: true, disableAnimations: true, tapped: []),
+      );
+      expect(find.byType(BackdropFilter), findsNothing);
+      expect(
+        tester.widget<AnimatedContainer>(find.byKey(const ValueKey('m3e-navigation-selected-pill'))).duration,
+        Duration.zero,
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+}
+
+Widget _navigationHost({
+  required ColorScheme scheme,
+  required bool animationsEnabled,
+  required List<String> tapped,
+  int selectedIndex = 1,
+  bool disableAnimations = false,
+  double textScale = 1,
+  TextDirection direction = TextDirection.ltr,
+}) {
+  return MaterialApp(
+    theme: ThemeData(useMaterial3: true, colorScheme: scheme),
+    builder: (context, child) {
+      final mediaQuery = MediaQuery.of(context);
+      return MediaQuery(
+        data: mediaQuery.copyWith(
+          padding: const EdgeInsets.only(bottom: 24),
+          viewPadding: const EdgeInsets.only(bottom: 24),
+          disableAnimations: disableAnimations,
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: Directionality(textDirection: direction, child: child!),
+      );
+    },
+    home: Scaffold(
+      extendBody: true,
+      backgroundColor: Colors.transparent,
+      body: const SizedBox.expand(child: ColoredBox(color: Color(0xFF00A896))),
+      bottomNavigationBar: M3eFloatingNavigationBar(
+        selectedIndex: selectedIndex,
+        animationsEnabled: animationsEnabled,
+        destinations: [
+          M3eNavigationDestination(icon: Icons.download_for_offline_outlined, label: 'Receive', onTap: () => tapped.add('Receive')),
+          M3eNavigationDestination(icon: Icons.send, label: 'Send', onTap: () => tapped.add('Send')),
+          M3eNavigationDestination(icon: Icons.settings, label: 'Settings', onTap: () => tapped.add('Settings')),
+        ],
+      ),
+    ),
+  );
+}

@@ -1,0 +1,388 @@
+name: UI polish checks and optimized ARM64 APK
+
+on:
+  push:
+    branches: [sesori/ui-feedback-round-apply]
+  workflow_dispatch:
+
+concurrency:
+  group: ui-polish-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.41.9"
+  ANDROID_PLATFORM: "android-36"
+  ANDROID_BUILD_TOOLS: "36.0.0"
+  ANDROID_NDK: "28.2.13676358"
+  ANDROID_CMAKE: "3.22.1"
+
+jobs:
+  networking-regressions:
+    name: Rust protocol and discovery regressions
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install pinned Rust formatter
+        run: rustup component add rustfmt
+      - name: Format networking regression test
+        working-directory: packages/core
+        run: |
+          rustfmt --edition 2021 --config skip_children=true src/http/server/mod.rs src/http/server/common/client_cert_verifier.rs src/http/server/v2.rs src/multicast/mod.rs tests/v2_legacy_interop.rs tests/v2_tls_pinning.rs tests/v2_server.rs
+          python3 - <<'PYCODE'
+          import base64, subprocess
+          patch = subprocess.check_output(['git', 'diff', '--', 'src', 'tests'])
+          print('RUST_FORMATTED_PATCH_BEGIN')
+          print(base64.b64encode(patch).decode())
+          print('RUST_FORMATTED_PATCH_END')
+          PYCODE
+          git diff --exit-code -- src tests
+      - name: Verify legacy regression against original server
+        working-directory: packages/core
+        shell: bash
+        run: |
+          git fetch --depth=1 origin 8b3749776195b176e5acb00ccacf87aad8e328bd
+          git show 8b3749776195b176e5acb00ccacf87aad8e328bd:packages/core/src/http/server/mod.rs > src/http/server/mod.rs
+          set +e
+          cargo test --features full --test v2_legacy_interop -- --nocapture > baseline.log 2>&1
+          result=$?
+          set -e
+          git restore src/http/server/mod.rs
+          if [ "$result" -eq 0 ]; then
+            cat baseline.log
+            echo 'Expected original server to reject a legacy HTTPS peer.' >&2
+            exit 1
+          fi
+          grep -E 'CertificateRequired|certificate required' baseline.log
+          echo 'Confirmed original server fails at TLS client-certificate negotiation.'
+      - name: Verify fixed legacy HTTPS interoperability
+        working-directory: packages/core
+        run: cargo test --features full --test v2_legacy_interop -- --nocapture
+      - name: Test networking core
+        working-directory: packages/core
+        run: cargo test --features full
+      - name: Clippy networking core
+        working-directory: packages/core
+        run: cargo clippy --features full --all-targets
+
+  format-transfer-changes:
+    name: Check transfer formatting
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Resolve formatter configuration
+        working-directory: app
+        run: flutter pub get
+      - name: Format transfer changes
+        working-directory: app
+        run: |
+          dart format --set-exit-if-changed lib/pages/progress_page.dart lib/pages/receive_page.dart lib/pages/send_page.dart \
+            lib/provider/receive_results_provider.dart lib/provider/receive_history_provider.dart lib/provider/network/send_provider.dart \
+            lib/provider/network/server/controller/receive_controller.dart lib/util/native/taskbar_helper.dart lib/util/ui/transfer_route.dart \
+            test/fixtures/transfer_fixture.dart test/unit/provider/receive_completion_test.dart test/unit/provider/send_upload_events_test.dart \
+            test/widget/transfer_completion_test.dart test/widget/home_page_navigation_test.dart
+      - name: Export formatter patch
+        if: always()
+        run: |
+          python3 - <<'PYCODE'
+          import base64, subprocess
+          patch = subprocess.check_output(['git', 'diff', '--', 'app/lib', 'app/test'])
+          print('FORMATTED_PATCH_BEGIN')
+          print(base64.b64encode(patch).decode())
+          print('FORMATTED_PATCH_END')
+          PYCODE
+
+  validate-and-build:
+    name: Flutter checks and signed ARM64 release APK
+    needs: format-transfer-changes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Dependencies (app and pub workspace)
+        working-directory: app
+        run: flutter pub get
+
+      - name: Dependencies (cargokit build tool)
+        working-directory: packages/localsend_isolates/rust_builder/cargokit/build_tool
+        run: flutter pub get
+
+      - name: Regenerate settings mapper
+        working-directory: app
+        run: |
+          dart run build_runner build --build-filter=lib/model/state/settings_state.mapper.dart
+          # A filtered fresh build removes generated outputs outside its filter.
+          # Restore those checked-in outputs, including the unchanged Mockito mocks.
+          git ls-files --deleted -z | xargs -0 -r git restore --
+
+      - name: Format and check UI files
+        working-directory: app
+        run: |
+          dart format --set-exit-if-changed \
+            lib/config/m3e_tokens.dart \
+            lib/config/theme.dart \
+            lib/pages/home_page.dart \
+            lib/pages/home_page_controller.dart \
+            lib/pages/progress_page.dart \
+            lib/pages/receive_page.dart \
+            lib/pages/send_page.dart \
+            lib/provider/receive_history_provider.dart \
+            lib/util/native/taskbar_helper.dart \
+            lib/provider/receive_results_provider.dart \
+            lib/provider/network/send_provider.dart \
+            lib/util/ui/transfer_route.dart \
+            test/fixtures/transfer_fixture.dart \
+            test/unit/provider/receive_completion_test.dart \
+            test/unit/provider/send_upload_events_test.dart \
+            test/widget/transfer_completion_test.dart \
+            lib/provider/network/server/controller/receive_controller.dart \
+            lib/pages/tabs/send_tab.dart \
+            lib/pages/tabs/settings_tab.dart \
+            lib/pages/tabs/receive_tab.dart \
+            lib/widget/m3e/m3e_background.dart \
+            lib/widget/m3e/m3e_components.dart \
+            lib/widget/dialogs/text_field_with_actions.dart \
+            test/ui_review.dart \
+            test/widget/m3e_background_test.dart \
+            test/widget/m3e_components_test.dart \
+            test/widget/send_tab_test.dart \
+            test/widget/settings_tab_test.dart \
+            test/widget/receive_tab_test.dart \
+            test/widget/home_page_navigation_test.dart \
+            lib/config/init.dart \
+            lib/model/state/settings_state.dart \
+            lib/provider/animation_provider.dart \
+            lib/provider/persistence_provider.dart \
+            lib/provider/settings_provider.dart \
+            lib/widget/animations/initial_fade_transition.dart \
+            lib/widget/animations/initial_slide_transition.dart \
+            lib/widget/custom_dropdown_button.dart \
+            lib/widget/watcher/life_cycle_watcher.dart \
+            test/widget/custom_dropdown_button_test.dart \
+            test/widget/motion_preferences_test.dart \
+            test/widget/progress_page_test.dart \
+            lib/util/ui/animations_status.dart \
+            test/unit/provider/motion_persistence_test.dart
+          dart format --set-exit-if-changed ../packages/localsend_isolates/lib/src/task/discovery/discovery.dart ../packages/localsend_isolates/test/task/discovery/configuration_test.dart
+
+      - name: Export formatter and codegen patch
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PYCODE'
+          import base64, subprocess
+          patch = subprocess.check_output(['git', 'diff', '--', 'app/lib', 'app/test', 'packages/localsend_isolates/lib/src/task/discovery/discovery.dart', 'packages/localsend_isolates/test/task/discovery/configuration_test.dart'])
+          print('FORMATTED_PATCH_BEGIN')
+          print(base64.b64encode(patch).decode())
+          print('FORMATTED_PATCH_END')
+          PYCODE
+
+      - name: Upload formatted UI sources for review
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: formatted-ui-sources
+          path: |
+            app/lib/config/m3e_tokens.dart
+            app/lib/config/theme.dart
+            app/lib/pages/home_page.dart
+            app/lib/pages/home_page_controller.dart
+            app/lib/provider/network/server/controller/receive_controller.dart
+            app/lib/pages/tabs/send_tab.dart
+            app/lib/pages/tabs/settings_tab.dart
+            app/lib/pages/tabs/receive_tab.dart
+            app/lib/widget/m3e/m3e_background.dart
+            app/lib/widget/m3e/m3e_components.dart
+            app/lib/widget/dialogs/text_field_with_actions.dart
+            app/test/ui_review.dart
+            app/test/widget/m3e_background_test.dart
+            app/test/widget/m3e_components_test.dart
+            app/test/widget/send_tab_test.dart
+            app/test/widget/settings_tab_test.dart
+            app/test/widget/receive_tab_test.dart
+            app/test/widget/home_page_navigation_test.dart
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Analyze (localsend_isolates)
+        working-directory: packages/localsend_isolates
+        run: flutter analyze
+
+      - name: Test (localsend_isolates)
+        working-directory: packages/localsend_isolates
+        run: flutter test
+
+      - name: Reproduce and verify Home navigation
+        if: success() || failure()
+        working-directory: app
+        run: flutter test test/widget/home_page_navigation_test.dart --reporter expanded
+
+      - name: Reproduce receive completion race against original controller
+        working-directory: app
+        shell: bash
+        run: |
+          git fetch --depth=1 origin b10e1baba930aa6fee80d6ae695222edac2bcb52
+          git show b10e1baba930aa6fee80d6ae695222edac2bcb52:app/lib/provider/network/server/controller/receive_controller.dart > lib/provider/network/server/controller/receive_controller.dart
+          set +e
+          flutter test test/unit/provider/receive_completion_test.dart --plain-name 'completion publishes before delayed history; its continuation cannot touch a new session' --reporter expanded > receive-baseline.log 2>&1
+          result=$?
+          set -e
+          git restore lib/provider/network/server/controller/receive_controller.dart
+          cat receive-baseline.log
+          if [ "$result" -eq 0 ]; then
+            echo 'Expected original controller to remain sending while history blocks.' >&2
+            exit 1
+          fi
+          grep -F 'Actual: SessionStatus:<SessionStatus.sending>' receive-baseline.log
+          echo 'Confirmed original receive completion is blocked by history I/O.'
+          git show b10e1baba930aa6fee80d6ae695222edac2bcb52:app/lib/provider/network/server/controller/receive_controller.dart > lib/provider/network/server/controller/receive_controller.dart
+          set +e
+          flutter test test/widget/home_page_navigation_test.dart --plain-name 'Quick Save completion preserves its result and the existing Home without duplicate PageViews' --reporter expanded > quick-save-baseline.log 2>&1
+          result=$?
+          set -e
+          git restore lib/provider/network/server/controller/receive_controller.dart
+          cat quick-save-baseline.log
+          if [ "$result" -eq 0 ]; then
+            echo 'Expected original Quick Save to remove the completed receive.' >&2
+            exit 1
+          fi
+          grep -F 'Null check operator used on a null value' quick-save-baseline.log
+          echo 'Confirmed original Quick Save deletes the completed receive session.'
+
+      - name: Verify transfer completion and cancellation regressions
+        if: success() || failure()
+        working-directory: app
+        run: flutter test test/unit/provider/receive_completion_test.dart test/unit/provider/send_upload_events_test.dart test/widget/transfer_completion_test.dart --reporter expanded
+
+      - name: Analyze (app)
+        if: success() || failure()
+        working-directory: app
+        run: flutter analyze
+
+      - name: Test (app)
+        if: success() || failure()
+        working-directory: app
+        run: flutter test --dart-define=UI_REVIEW=true
+
+      - name: Upload UI review renders
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-review-renders
+          path: app/build/ui-review/*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;${ANDROID_PLATFORM}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}" \
+            "ndk;${ANDROID_NDK}" \
+            "cmake;${ANDROID_CMAKE}"
+
+      - name: Prepare release signing
+        env:
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+          ANDROID_KEY_STORE: ${{ secrets.ANDROID_KEY_STORE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEY_PROPERTIES" ] || [ -z "$ANDROID_KEY_STORE" ]; then
+            echo 'Both Android release signing secrets are required.' >&2
+            exit 1
+          fi
+          printf '%s' "$ANDROID_KEY_PROPERTIES" | base64 --decode > app/android/key.properties
+          printf '%s' "$ANDROID_KEY_STORE" | base64 --decode > "$RUNNER_TEMP/localsend-nav-release.jks"
+          test -s "$RUNNER_TEMP/localsend-nav-release.jks"
+          grep -Eq '^keyAlias=.+$' app/android/key.properties
+          grep -Eq '^keyPassword=.+$' app/android/key.properties
+          grep -Eq '^storePassword=.+$' app/android/key.properties
+          sed -i "s#^storeFile=.*#storeFile=$RUNNER_TEMP/localsend-nav-release.jks#" app/android/key.properties
+
+      - name: Build optimized ARM64 release APK
+        working-directory: app
+        run: |
+          flutter build apk --release --target-platform android-arm64 --split-per-abi \
+            --tree-shake-icons --split-debug-info=build/symbols --no-pub
+
+      - name: Verify signature and ARM64-only native libraries
+        working-directory: app
+        run: |
+          set -euo pipefail
+          apk="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          test -s "$apk"
+          mapfile -t native_abis < <(unzip -Z1 "$apk" | awk -F/ '$1 == "lib" && NF >= 3 { print $2 }' | sort -u)
+          test "${#native_abis[@]}" -eq 1
+          test "${native_abis[0]}" = arm64-v8a
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          signature=$("$apksigner" verify --verbose --print-certs "$apk")
+          printf '%s\n' "$signature" | grep -Eq 'Verified using v[123] scheme.*: true'
+          if printf '%s\n' "$signature" | grep -Fq 'CN=Android Debug'; then
+            echo 'A release signing certificate is required.' >&2
+            exit 1
+          fi
+          badging=$("$aapt" dump badging "$apk")
+          printf '%s\n' "$badging" | grep -Fq "package: name='com.localsend.m3e'"
+          if printf '%s\n' "$badging" | grep -Fq 'application-debuggable'; then
+            echo 'The APK must not be debuggable.' >&2
+            exit 1
+          fi
+          cp "$apk" LocalSend-M3E-arm64-v8a-release.apk
+          sha256sum LocalSend-M3E-arm64-v8a-release.apk > LocalSend-M3E-arm64-v8a-release.apk.sha256
+          stat -c '%n %s bytes' LocalSend-M3E-arm64-v8a-release.apk
+          cat LocalSend-M3E-arm64-v8a-release.apk.sha256
+
+      - name: Upload optimized ARM64 APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: LocalSend-M3E-arm64-v8a-release
+          path: |
+            app/LocalSend-M3E-arm64-v8a-release.apk
+            app/LocalSend-M3E-arm64-v8a-release.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Dart debug symbols
+        uses: actions/upload-artifact@v6
+        with:
+          name: LocalSend-M3E-arm64-v8a-symbols
+          path: app/build/symbols/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove temporary signing files
+        if: always()
+        run: rm -f app/android/key.properties "$RUNNER_TEMP/localsend-nav-release.jks"

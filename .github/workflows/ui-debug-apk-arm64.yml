@@ -1,0 +1,144 @@
+name: LocalSend M3E ARM64 test APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.41.9"
+  ANDROID_PLATFORM: "android-36"
+  ANDROID_BUILD_TOOLS: "36.0.0"
+  ANDROID_NDK: "28.2.13676358"
+  ANDROID_CMAKE: "3.22.1"
+
+jobs:
+  build-ui-debug-arm64:
+    name: Validate and build ARM64 Android test APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install project Android SDK components
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;${ANDROID_PLATFORM}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}" \
+            "ndk;${ANDROID_NDK}" \
+            "cmake;${ANDROID_CMAKE}"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Dependencies (app)
+        working-directory: app
+        run: flutter pub get
+
+      - name: Dependencies (cargokit build tool)
+        working-directory: packages/localsend_isolates/rust_builder/cargokit/build_tool
+        run: flutter pub get
+
+      - name: Dependencies (localsend_isolates)
+        working-directory: packages/localsend_isolates
+        run: flutter pub get
+
+      - name: Analyze (app)
+        working-directory: app
+        run: flutter analyze
+
+      - name: Test (app)
+        working-directory: app
+        run: flutter test
+
+      - name: Test (localsend_isolates)
+        working-directory: packages/localsend_isolates
+        run: flutter test
+
+      - name: Build ARM64 debug APK
+        working-directory: app
+        run: |
+          set -euo pipefail
+          rm -rf build/app/outputs/flutter-apk
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi
+
+      - name: Verify ARM64-only APK, identity, version, and debug signature
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_dir="build/app/outputs/flutter-apk"
+          mapfile -t apk_files < <(find "$apk_dir" -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort)
+          if [ "${#apk_files[@]}" -ne 1 ] || [ "${apk_files[0]}" != "app-arm64-v8a-debug.apk" ]; then
+            echo "Expected only app-arm64-v8a-debug.apk; got: ${apk_files[*]:-none}" >&2
+            exit 1
+          fi
+          apk="$apk_dir/${apk_files[0]}"
+          test -s "$apk"
+
+          mapfile -t native_abis < <(unzip -Z1 "$apk" | awk -F/ '$1 == "lib" && NF >= 3 { print $2 }' | sort -u)
+          if [ "${#native_abis[@]}" -ne 1 ] || [ "${native_abis[0]}" != "arm64-v8a" ]; then
+            echo "Expected native libraries only under lib/arm64-v8a/; got: ${native_abis[*]:-none}" >&2
+            exit 1
+          fi
+
+          aapt=$(find "${ANDROID_HOME:?ANDROID_HOME is not set}/build-tools" -type f -name aapt | sort -V | tail -1)
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -x "$aapt"
+          test -x "$apksigner"
+          signature_details=$("$apksigner" verify --verbose --print-certs "$apk")
+          printf '%s\n' "$signature_details" | grep -Eq 'Verified using v[123] scheme.*: true'
+          printf '%s\n' "$signature_details" | grep -Fq 'CN=Android Debug'
+
+          version_line=$(sed -n 's/^version: //p' pubspec.yaml)
+          version_name=${version_line%%+*}
+          build_number=${version_line##*+}
+          if [[ ! "$build_number" =~ ^[0-9]+$ ]]; then
+            echo "Cannot read a numeric build number from app/pubspec.yaml: $version_line" >&2
+            exit 1
+          fi
+          expected_version_code=$((build_number * 10 + 3))
+          badging=$("$aapt" dump badging "$apk")
+          printf '%s\n' "$badging" | grep -Fq "package: name='com.localsend.m3e.debug' versionCode='$expected_version_code' versionName='$version_name'"
+          printf '%s\n' "$badging" | grep -Fq "application-label:'LocalSend Debug'"
+
+          cp "$apk" LocalSend-M3E-arm64-v8a.apk
+          sha256sum LocalSend-M3E-arm64-v8a.apk
+          stat -c '%n %s bytes' LocalSend-M3E-arm64-v8a.apk
+          echo "Verified test APK: package=com.localsend.m3e.debug version=$version_name versionCode=$expected_version_code ABI=arm64-v8a"
+
+      - name: Upload ARM64 test APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: LocalSend-M3E-arm64-v8a
+          path: app/LocalSend-M3E-arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 14

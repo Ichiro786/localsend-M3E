@@ -1,0 +1,136 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:localsend_app/config/theme.dart';
+import 'package:localsend_app/model/persistence/color_mode.dart';
+import 'package:localsend_app/provider/animation_provider.dart';
+import 'package:localsend_app/widget/m3e/m3e_background.dart';
+import 'package:refena_flutter/refena_flutter.dart';
+
+const _surfaceKey = ValueKey('m3e-background-surface');
+const _primaryBlobKey = ValueKey('m3e-background-primary-blob');
+const _tertiaryBlobKey = ValueKey('m3e-background-tertiary-blob');
+
+void main() {
+  test('OLED keeps a dark black base and neutral UI tones regardless of requested brightness', () {
+    for (final brightness in Brightness.values) {
+      final scheme = getTheme(ColorMode.oled, Colors.deepOrange, brightness, null).colorScheme;
+      expect(scheme.brightness, Brightness.dark);
+      expect(scheme.surface, Colors.black);
+      for (final tone in [scheme.primary, scheme.primaryFixed, scheme.onPrimaryFixed, scheme.primaryContainer, scheme.surfaceContainerLow]) {
+        expect(tone.r, tone.g);
+        expect(tone.g, tone.b);
+      }
+    }
+  });
+
+  testWidgets('organic globes keep tab emphasis and remain visible and animated over an OLED black base', (tester) async {
+    final scheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark);
+    const emphases = [
+      (M3eBackgroundEmphasis.receive, 0.26, 0.22),
+      (M3eBackgroundEmphasis.send, 0.26 * 0.68, 0.22 * 0.68),
+      (M3eBackgroundEmphasis.settings, 0.26 * 0.38, 0.22 * 0.38),
+    ];
+
+    for (final (emphasis, primaryAlpha, tertiaryAlpha) in emphases) {
+      await tester.pumpWidget(
+        _backgroundApp(
+          emphasis: emphasis,
+          scheme: scheme,
+          animationsEnabled: false,
+        ),
+      );
+      expect(
+        tester.widget<ColoredBox>(find.byKey(_primaryBlobKey)).color,
+        scheme.primaryContainer.withValues(alpha: primaryAlpha),
+      );
+      expect(
+        tester.widget<ColoredBox>(find.byKey(_tertiaryBlobKey)).color,
+        scheme.tertiaryContainer.withValues(alpha: tertiaryAlpha),
+      );
+    }
+
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      final oledScheme = ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness).copyWith(surface: Colors.black);
+      await tester.pumpWidget(
+        _backgroundApp(
+          emphasis: M3eBackgroundEmphasis.receive,
+          scheme: oledScheme,
+          animationsEnabled: true,
+        ),
+      );
+
+      expect(oledScheme.brightness, brightness);
+      expect(tester.widget<ColoredBox>(find.byKey(_surfaceKey)).color, Colors.black);
+      expect(tester.widget<ColoredBox>(find.byKey(_primaryBlobKey)).color.a, greaterThan(0));
+      expect(tester.widget<ColoredBox>(find.byKey(_tertiaryBlobKey)).color.a, greaterThan(0));
+
+      await tester.pump();
+      final before = tester.getTopLeft(find.byKey(_primaryBlobKey));
+      await tester.pump(const Duration(seconds: 4));
+      final after = tester.getTopLeft(find.byKey(_primaryBlobKey));
+      expect((after - before).distance, greaterThan(1), reason: 'OLED globes animate for ${brightness.name} scheme brightness');
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('background motion requires both the app preference and system motion permission', (tester) async {
+    const scenarios = [
+      (true, false, true),
+      (false, false, false),
+      (true, true, false),
+    ];
+
+    for (final (appAnimationsEnabled, disableAnimations, shouldMove) in scenarios) {
+      for (final oled in [false, true]) {
+        await tester.pumpWidget(
+          _backgroundApp(
+            emphasis: M3eBackgroundEmphasis.receive,
+            scheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark).copyWith(surface: oled ? Colors.black : null),
+            animationsEnabled: appAnimationsEnabled,
+            disableAnimations: disableAnimations,
+          ),
+        );
+        await tester.pump();
+        final before = tester.getTopLeft(find.byKey(_primaryBlobKey));
+        await tester.pump(const Duration(seconds: 4));
+        final after = tester.getTopLeft(find.byKey(_primaryBlobKey));
+
+        if (shouldMove) {
+          expect((after - before).distance, greaterThan(1));
+        } else {
+          expect((after - before).distance, lessThan(0.1));
+        }
+        expect(tester.widget<ColoredBox>(find.byKey(_primaryBlobKey)).color.a, greaterThan(0));
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+}
+
+Widget _backgroundApp({
+  required M3eBackgroundEmphasis emphasis,
+  required ColorScheme scheme,
+  required bool animationsEnabled,
+  bool disableAnimations = false,
+}) {
+  return RefenaScope(
+    key: UniqueKey(),
+    overrides: [
+      animationProvider.overrideWithBuilder((_) => animationsEnabled),
+    ],
+    child: MaterialApp(
+      theme: ThemeData(useMaterial3: true, colorScheme: scheme),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(disableAnimations: disableAnimations),
+          child: child!,
+        );
+      },
+      home: M3eExpressiveBackground(
+        emphasis: emphasis,
+        child: const SizedBox.expand(),
+      ),
+    ),
+  );
+}
