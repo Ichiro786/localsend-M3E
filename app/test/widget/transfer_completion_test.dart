@@ -19,11 +19,9 @@ import 'package:localsend_app/widget/custom_progress_bar.dart';
 import 'package:localsend_app/widget/dialogs/cancel_session_dialog.dart';
 import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/file_status.dart';
-import 'package:localsend_isolates/model/file_type.dart';
 import 'package:localsend_isolates/model/session_status.dart';
 import 'package:localsend_isolates/rust/api/model.dart' as rust_model;
 import 'package:localsend_isolates/rust/api/server.dart' show RegisterDtoV2, SessionEndReasonV2;
-import 'package:localsend_isolates/util/rust.dart';
 import 'package:localsend_isolates/util/transfer_notification.dart';
 import 'package:mockito/mockito.dart';
 import 'package:refena_flutter/refena_flutter.dart';
@@ -430,7 +428,17 @@ HttpServerPrepareUploadEvent _offer(String id, {String? message}) => HttpServerP
     protocol: rust_model.ProtocolType.http,
     download: false,
   ),
-  files: {'file-0': transferFile('file-0').copyWith(fileType: message == null ? FileType.other : FileType.text, preview: message).toRust()},
+  files: {
+    'file-0': rust_model.FileDto(
+      id: 'file-0',
+      fileName: message == null ? 'file-0.bin' : 'message.txt',
+      size: BigInt.from(10),
+      fileType: message == null ? 'application/octet-stream' : 'text/plain',
+      sha256: null,
+      preview: message,
+      metadata: null,
+    ),
+  },
 );
 
 Finder _button(String label, {bool elevated = false}) => find
