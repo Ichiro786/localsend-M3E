@@ -85,9 +85,11 @@ class _ProgressPageState extends State<ProgressPage> with Refena {
         // Release after the route's transition and disposal have completed.
         // Updating shared providers inside dispose can rebuild another receipt
         // while Flutter's widget tree is locked.
-        unawaited(route.completed.then((_) {
-          if (!results.disposed) results.release(widget.sessionId);
-        }));
+        unawaited(
+          route.completed.then((_) {
+            if (!results.disposed) results.release(widget.sessionId);
+          }),
+        );
       }
       if (_useWakelock) {
         try {

@@ -1,1 +1,0 @@
-app/assets/CHANGELOG.md

@@ -19,8 +19,10 @@ void main() {
 
   for (final mode in ['manual', 'quick-save', 'favorites']) {
     test('$mode successful receive stays completed until explicit dismissal', () async {
-      final fixture = TransferFixture(receive: receiveSession('receive'), settings: transferSettings(
-        quickSave: mode == 'quick-save', quickSaveFromFavorites: mode == 'favorites'));
+      final fixture = TransferFixture(
+        receive: receiveSession('receive'),
+        settings: transferSettings(quickSave: mode == 'quick-save', quickSaveFromFavorites: mode == 'favorites'),
+      );
       addTearDown(fixture.container.disposeContainer);
       await fixture.receiver.onFileUploadResult(receiveResult('receive'));
       // Flush the original zero-duration Quick Save dismissal.
@@ -36,8 +38,9 @@ void main() {
   test('multi-file receive finishes only after every accepted file, and retains gallery metadata', () async {
     final fixture = TransferFixture(receive: receiveSession('multi', count: 3));
     addTearDown(fixture.container.disposeContainer);
-    fixture.container.notifier(fileTransferProvider).setStatuses(sessionId: 'multi', statuses: {
-      'file-0': FileStatus.sending, 'file-1': FileStatus.sending, 'file-2': FileStatus.skipped});
+    fixture.container
+        .notifier(fileTransferProvider)
+        .setStatuses(sessionId: 'multi', statuses: {'file-0': FileStatus.sending, 'file-1': FileStatus.sending, 'file-2': FileStatus.skipped});
     await fixture.receiver.onFileUploadResult(receiveResult('multi'));
     expect(fixture.container.read(serverProvider)!.session!.status, SessionStatus.sending);
     await fixture.receiver.onFileUploadResult(receiveResult('multi', fileId: 'file-1', gallery: true));
@@ -78,15 +81,19 @@ void main() {
   test('simultaneous file completions serialize history writes without delaying receive completion', () async {
     final fixture = TransferFixture(receive: receiveSession('concurrent', count: 2));
     addTearDown(fixture.container.disposeContainer);
-    fixture.container.notifier(fileTransferProvider).setStatuses(sessionId: 'concurrent', statuses: {
-      'file-0': FileStatus.sending, 'file-1': FileStatus.sending});
+    fixture.container
+        .notifier(fileTransferProvider)
+        .setStatuses(sessionId: 'concurrent', statuses: {'file-0': FileStatus.sending, 'file-1': FileStatus.sending});
     when(fixture.persistence.isSaveToHistory()).thenReturn(true);
     final gate = Completer<void>();
     final started = Completer<void>();
     var writes = 0;
     when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {
       writes++;
-      if (writes == 1) { started.complete(); await gate.future; }
+      if (writes == 1) {
+        started.complete();
+        await gate.future;
+      }
     });
     final first = fixture.receiver.onFileUploadResult(receiveResult('concurrent'));
     await started.future;
@@ -109,7 +116,10 @@ void main() {
     var writes = 0;
     when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {
       writes++;
-      if (writes == 1) { started.complete(); await gate.future; }
+      if (writes == 1) {
+        started.complete();
+        await gate.future;
+      }
     });
     final result = fixture.receiver.onFileUploadResult(receiveResult('clear'));
     await started.future;
@@ -123,8 +133,9 @@ void main() {
   test('a failed history write releases the next queued completion', () async {
     final fixture = TransferFixture(receive: receiveSession('queued', count: 2));
     addTearDown(fixture.container.disposeContainer);
-    fixture.container.notifier(fileTransferProvider).setStatuses(sessionId: 'queued', statuses: {
-      'file-0': FileStatus.sending, 'file-1': FileStatus.sending});
+    fixture.container
+        .notifier(fileTransferProvider)
+        .setStatuses(sessionId: 'queued', statuses: {'file-0': FileStatus.sending, 'file-1': FileStatus.sending});
     when(fixture.persistence.isSaveToHistory()).thenReturn(true);
     var writes = 0;
     when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {

@@ -38,33 +38,67 @@ class TransferFixture {
   late final FixtureSend sender;
   final observer = RefenaHistoryObserver.only(actionDispatched: true);
 
-  TransferFixture({ReceiveSessionState? receive, SendSessionState? send, SettingsState? settings,
-      List<FavoriteDevice> favorites = const [], int androidSdkInt = 35}) {
+  TransferFixture({
+    ReceiveSessionState? receive,
+    SendSessionState? send,
+    SettingsState? settings,
+    List<FavoriteDevice> favorites = const [],
+    int androidSdkInt = 35,
+  }) {
     final initialSettings = settings ?? transferSettings();
     when(persistence.getReceiveHistory()).thenReturn([]);
     when(persistence.isSaveToHistory()).thenReturn(false);
     when(persistence.getFavorites()).thenReturn(favorites);
     server = FixtureServer(receive);
     sender = FixtureSend(send);
-    container = RefenaContainer(observers: [observer], overrides: [
-      deviceInfoProvider.overrideWithBuilder((_) => DeviceInfoResult(deviceType: DeviceType.mobile, deviceModel: null, androidSdkInt: androidSdkInt)),
-      favoritesProvider.overrideWithNotifier((_) => FavoritesService(persistence)),
-      settingsProvider.overrideWithNotifier((_) => FixtureSettings(initialSettings)),
-      serverProvider.overrideWithNotifier((_) => server),
-      sendProvider.overrideWithNotifier((_) => sender),
-      receiveHistoryProvider.overrideWithNotifier((_) => ReceiveHistoryService(persistence)),
-      parentIsolateProvider.overrideWithReducer(notifier: (_) => IsolateController(initialState: ParentIsolateState.initial(SyncState(
-        rootIsolateToken: Object(),
-        securityContext: const StoredSecurityContext(privateKey: '', publicKey: '', certificate: '', certificateHash: ''),
-        deviceInfo: DeviceInfoResult(deviceType: DeviceType.mobile, deviceModel: null, androidSdkInt: 35),
-        alias: 'Fixture', port: 53317, protocol: ProtocolType.http, multicastGroup: '224.0.0.167',
-        networkWhitelist: null, networkBlacklist: null, discoveryTimeout: 5, serverRunning: true, download: false,
-      ))), reducer: {IsolateHttpServerPrepareUploadDecisionAction: null, IsolateHttpServerCancelSessionAction: null, IsolateHttpUploadCancelAction: null}),
-    ]);
+    container = RefenaContainer(
+      observers: [observer],
+      overrides: [
+        deviceInfoProvider.overrideWithBuilder(
+          (_) => DeviceInfoResult(deviceType: DeviceType.mobile, deviceModel: null, androidSdkInt: androidSdkInt),
+        ),
+        favoritesProvider.overrideWithNotifier((_) => FavoritesService(persistence)),
+        settingsProvider.overrideWithNotifier((_) => FixtureSettings(initialSettings)),
+        serverProvider.overrideWithNotifier((_) => server),
+        sendProvider.overrideWithNotifier((_) => sender),
+        receiveHistoryProvider.overrideWithNotifier((_) => ReceiveHistoryService(persistence)),
+        parentIsolateProvider.overrideWithReducer(
+          notifier: (_) => IsolateController(
+            initialState: ParentIsolateState.initial(
+              SyncState(
+                rootIsolateToken: Object(),
+                securityContext: const StoredSecurityContext(privateKey: '', publicKey: '', certificate: '', certificateHash: ''),
+                deviceInfo: DeviceInfoResult(deviceType: DeviceType.mobile, deviceModel: null, androidSdkInt: 35),
+                alias: 'Fixture',
+                port: 53317,
+                protocol: ProtocolType.http,
+                multicastGroup: '224.0.0.167',
+                networkWhitelist: null,
+                networkBlacklist: null,
+                discoveryTimeout: 5,
+                serverRunning: true,
+                download: false,
+              ),
+            ),
+          ),
+          reducer: {
+            IsolateHttpServerPrepareUploadDecisionAction: null,
+            IsolateHttpServerCancelSessionAction: null,
+            IsolateHttpUploadCancelAction: null,
+          },
+        ),
+      ],
+    );
     container.read(serverProvider);
     container.read(sendProvider);
-    receiver = ReceiveController(ServerUtils(refFunc: () => container, getState: () => container.read(serverProvider)!,
-      getStateOrNull: () => container.read(serverProvider), setState: server.apply));
+    receiver = ReceiveController(
+      ServerUtils(
+        refFunc: () => container,
+        getState: () => container.read(serverProvider)!,
+        getStateOrNull: () => container.read(serverProvider),
+        setState: server.apply,
+      ),
+    );
   }
 }
 
@@ -74,14 +108,22 @@ class FixtureServer extends ServerService {
   final cancelled = <String>[];
   FixtureServer(this.initial);
   @override
-  ServerState init() => ServerState(alias: 'Fixture', port: 53317, https: false, webSendState: null, webUpload: false, webPin: null, session: initial);
-  void apply(ServerState? Function(ServerState?) update) { state = update(state); }
-  void setSession(ReceiveSessionState? session) { state = state!.copyWith(session: session); }
+  ServerState init() =>
+      ServerState(alias: 'Fixture', port: 53317, https: false, webSendState: null, webUpload: false, webPin: null, session: initial);
+  void apply(ServerState? Function(ServerState?) update) {
+    state = update(state);
+  }
+
+  void setSession(ReceiveSessionState? session) {
+    state = state!.copyWith(session: session);
+  }
+
   @override
   void closeSession() {
     if (state?.session != null) closed.add(state!.session!.sessionId);
     super.closeSession();
   }
+
   @override
   void cancelSession() {
     if (state?.session != null) cancelled.add(state!.session!.sessionId);
@@ -95,9 +137,15 @@ class FixtureSend extends SendNotifier {
   FixtureSend(this.initial);
   @override
   Map<String, SendSessionState> init() => initial == null ? {} : {initial!.sessionId: initial!};
-  void setSession(SendSessionState session) { state = {...state, session.sessionId: session}; }
+  void setSession(SendSessionState session) {
+    state = {...state, session.sessionId: session};
+  }
+
   @override
-  void closeSession(String id) { closed.add(id); super.closeSession(id); }
+  void closeSession(String id) {
+    closed.add(id);
+    super.closeSession(id);
+  }
 }
 
 class FixtureSettings extends SettingsService {
@@ -107,25 +155,65 @@ class FixtureSettings extends SettingsService {
   SettingsState init() => initial;
 }
 
-FileDto transferFile(String id, {int size = 10}) => FileDto(id: id, fileName: '$id.bin', size: size, fileType: FileType.other,
-  hash: null, preview: null, metadata: null);
+FileDto transferFile(String id, {int size = 10}) =>
+    FileDto(id: id, fileName: '$id.bin', size: size, fileType: FileType.other, hash: null, preview: null, metadata: null);
 
 ReceiveSessionState receiveSession(String id, {SessionStatus status = SessionStatus.sending, int count = 1, int size = 10}) => ReceiveSessionState(
-  sessionId: id, status: status, sender: Device.empty, senderAlias: 'Fixture',
-  files: {for(var i=0; i<count; i++) 'file-$i': ReceivingFile(file: transferFile('file-$i', size: size), token: 'token',
-    desiredName: '$id-file-$i.bin', path: null, savedToGallery: false, errorMessage: null)},
-  startTime: null, endTime: null, destinationDirectory: '/downloads', cacheDirectory: '/cache', saveToGallery: false, createdDirectories: {},
+  sessionId: id,
+  status: status,
+  sender: Device.empty,
+  senderAlias: 'Fixture',
+  files: {
+    for (var i = 0; i < count; i++)
+      'file-$i': ReceivingFile(
+        file: transferFile('file-$i', size: size),
+        token: 'token',
+        desiredName: '$id-file-$i.bin',
+        path: null,
+        savedToGallery: false,
+        errorMessage: null,
+      ),
+  },
+  startTime: null,
+  endTime: null,
+  destinationDirectory: '/downloads',
+  cacheDirectory: '/cache',
+  saveToGallery: false,
+  createdDirectories: {},
 );
 
 SendSessionState sendSession(String id, {SessionStatus status = SessionStatus.sending}) => SendSessionState(
-  sessionId: id, remoteSessionId: 'remote-$id', background: false, status: status, target: Device.empty,
-  files: {'outgoing': SendingFile(file: transferFile('outgoing'), token: 'token', thumbnail: null, asset: null, path: null,
-    bytes: null, errorMessage: null)}, hashedFileCount: 1, startTime: null, endTime: null, sendingTasks: [], errorMessage: null,
+  sessionId: id,
+  remoteSessionId: 'remote-$id',
+  background: false,
+  status: status,
+  target: Device.empty,
+  files: {
+    'outgoing': SendingFile(
+      file: transferFile('outgoing'),
+      token: 'token',
+      thumbnail: null,
+      asset: null,
+      path: null,
+      bytes: null,
+      errorMessage: null,
+    ),
+  },
+  hashedFileCount: 1,
+  startTime: null,
+  endTime: null,
+  sendingTasks: [],
+  errorMessage: null,
 );
 
 HttpServerFileUploadResultEvent receiveResult(String id, {String fileId = 'file-0', String? error, bool gallery = false}) =>
-  HttpServerFileUploadResultEvent(sessionId: id, fileId: fileId, path: error != null || gallery ? null : '/downloads/$id-$fileId.bin',
-    savedToGallery: gallery, error: error);
+    HttpServerFileUploadResultEvent(
+      sessionId: id,
+      fileId: fileId,
+      path: error != null || gallery ? null : '/downloads/$id-$fileId.bin',
+      savedToGallery: gallery,
+      error: error,
+    );
 
 SettingsState transferSettings({bool autoFinish = true, bool quickSave = false, bool quickSaveFromFavorites = false}) {
   return SettingsState(
@@ -160,4 +248,3 @@ SettingsState transferSettings({bool autoFinish = true, bool quickSave = false, 
     advancedSettings: false,
   );
 }
-

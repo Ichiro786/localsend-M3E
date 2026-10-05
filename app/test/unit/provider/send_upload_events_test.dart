@@ -41,8 +41,7 @@ void main() {
     fixture.sender.clearAllSessions();
     expect(transfer.getData().keys, ['receive']);
     expect(transfer.getStatus(sessionId: 'receive', fileId: 'incoming'), FileStatus.finished);
-    final cancellations = fixture.observer.history.whereType<ActionDispatchedEvent>()
-      .map((e) => e.action).whereType<IsolateHttpUploadCancelAction>();
+    final cancellations = fixture.observer.history.whereType<ActionDispatchedEvent>().map((e) => e.action).whereType<IsolateHttpUploadCancelAction>();
     expect(cancellations.single.taskId, 7);
   });
 
