@@ -167,27 +167,34 @@ class ReceiveController {
       await showFromTray();
     }
 
-    final message = server.getState().session?.message;
-    if (message != null) {
-      // Message already received
-      await server.ref
-          .redux(receiveHistoryProvider)
-          .dispatchAsync(
-            AddHistoryEntryAction(
-              entryId: const Uuid().v4(),
-              fileName: message,
-              fileType: FileType.text,
-              path: null,
-              savedToGallery: false,
-              isMessage: true,
-              fileSize: utf8.encode(message).length,
-              senderAlias: server.getState().session!.senderAlias,
-              timestamp: DateTime.now().toUtc(),
-            ),
-          );
-    }
+    final requestSession = server.getStateOrNull()?.session;
+    if (requestSession?.sessionId != sessionId || requestSession?.status != SessionStatus.waiting) return;
 
-    if (server.getStateOrNull()?.session?.sessionId != sessionId || server.getStateOrNull()?.session?.status != SessionStatus.waiting) return;
+    final message = requestSession!.message;
+    if (message != null) {
+      // The message is already received. History I/O must not block its UI,
+      // and a history error must not leave the sender waiting forever.
+      unawaited(
+        server.ref
+            .redux(receiveHistoryProvider)
+            .dispatchAsync(
+              AddHistoryEntryAction(
+                entryId: const Uuid().v4(),
+                fileName: message,
+                fileType: FileType.text,
+                path: null,
+                savedToGallery: false,
+                isMessage: true,
+                fileSize: utf8.encode(message).length,
+                senderAlias: requestSession.senderAlias,
+                timestamp: DateTime.now().toUtc(),
+              ),
+            )
+            .then<void>((_) {}, onError: (Object error, StackTrace stack) {
+              _logger.warning('Could not save receive message history for $sessionId', error, stack);
+            }),
+      );
+    }
 
     final receiveProvider = ViewProvider((ref) {
       // No select: comparing the selected session runs the dart_mappable deep equality

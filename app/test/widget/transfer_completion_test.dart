@@ -19,11 +19,13 @@ import 'package:localsend_app/widget/custom_progress_bar.dart';
 import 'package:localsend_app/widget/dialogs/cancel_session_dialog.dart';
 import 'package:localsend_isolates/isolate.dart';
 import 'package:localsend_isolates/model/file_status.dart';
+import 'package:localsend_isolates/model/file_type.dart';
 import 'package:localsend_isolates/model/session_status.dart';
 import 'package:localsend_isolates/rust/api/model.dart' as rust_model;
 import 'package:localsend_isolates/rust/api/server.dart' show RegisterDtoV2, SessionEndReasonV2;
 import 'package:localsend_isolates/util/rust.dart';
 import 'package:localsend_isolates/util/transfer_notification.dart';
+import 'package:mockito/mockito.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:routerino/routerino.dart';
 
@@ -113,6 +115,35 @@ void main() {
       expect(find.byType(ReceivePage, skipOffstage: false), findsNothing);
       await _done(tester);
       expect(navigator.canPop(), isFalse);
+      expect(find.text('Parent route'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+  }
+
+  for (final history in ['blocked', 'failed']) {
+    testWidgets('message with $history history remains usable and preserves an older receive confirmation', (tester) async {
+      final fixture = TransferFixture(receive: receiveSession('first'));
+      final navigator = await _app(tester, fixture);
+      unawaited(navigator.push(_progress('first', receiving: true)));
+      await tester.pumpAndSettle();
+      await fixture.receiver.onFileUploadResult(receiveResult('first'));
+      final gate = Completer<void>();
+      when(fixture.persistence.isSaveToHistory()).thenReturn(true);
+      when(fixture.persistence.setReceiveHistory(any)).thenAnswer((_) async {
+        if (history == 'failed') throw StateError('message history unavailable');
+        await gate.future;
+      });
+      await tester.runAsync(() => fixture.receiver.onPrepareUpload(_offer('message', message: 'Hello')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ReceivePage), findsOneWidget);
+      expect(fixture.container.read(serverProvider)!.session!.message, 'Hello');
+      await tester.tap(_button(t.general.close));
+      await tester.pumpAndSettle();
+      expect(find.text('first-file-0.bin'), findsOneWidget);
+      expect(fixture.container.read(serverProvider)!.session, isNull);
+      if (!gate.isCompleted) gate.complete();
+      await tester.pumpAndSettle();
+      await _done(tester);
       expect(find.text('Parent route'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
@@ -383,7 +414,7 @@ Future<void> _done(WidgetTester tester) async {
   expect(tester.takeException(), isNull);
 }
 
-HttpServerPrepareUploadEvent _offer(String id) => HttpServerPrepareUploadEvent(
+HttpServerPrepareUploadEvent _offer(String id, {String? message}) => HttpServerPrepareUploadEvent(
   sessionId: id,
   ip: '192.168.1.2',
   certFingerprint: 'sender-cert',
@@ -395,7 +426,7 @@ HttpServerPrepareUploadEvent _offer(String id) => HttpServerPrepareUploadEvent(
     protocol: rust_model.ProtocolType.http,
     download: false,
   ),
-  files: {'file-0': transferFile('file-0').toRust()},
+  files: {'file-0': transferFile('file-0').copyWith(fileType: message == null ? FileType.other : FileType.text, preview: message).toRust()},
 );
 
 Finder _button(String label, {bool elevated = false}) => find
